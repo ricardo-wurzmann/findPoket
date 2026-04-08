@@ -26,8 +26,8 @@ export async function GET(request: NextRequest) {
         ? {
             OR: [
               { venue: { city } },
-              { venueId: null, locationLabel: { contains: city, mode: "insensitive" } },
-              { venueId: null, locationLabel: null },
+              { locationLabel: { contains: city, mode: "insensitive" } },
+              { lat: null }, // no coordinates → can't filter by city, always include
             ],
           }
         : {}),

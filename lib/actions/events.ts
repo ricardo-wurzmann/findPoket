@@ -18,13 +18,13 @@ export const getEvents = authActionClient
     const city = parsedInput.city;
     const events = await prisma.event.findMany({
       where: {
-        // City: match venue.city, OR locationLabel containing city, OR no location at all
+        // City: match venue.city OR locationLabel containing city OR no coordinates (always show)
         ...(city
           ? {
               OR: [
                 { venue: { city } },
-                { venueId: null, locationLabel: { contains: city, mode: "insensitive" } },
-                { venueId: null, locationLabel: null },
+                { locationLabel: { contains: city, mode: "insensitive" } },
+                { lat: null }, // no coordinates → can't filter by city, always include
               ],
             }
           : {}),

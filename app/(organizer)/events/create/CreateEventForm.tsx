@@ -1,17 +1,20 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
-import { updateEvent } from "@/lib/actions/events";
-import { updateEventSchema } from "@/lib/validations/event";
+import { createEvent } from "@/lib/actions/events";
+import { createEventSchema, type CreateEventInput } from "@/lib/validations/event";
 import { cn } from "@/lib/utils";
 
-// Extend with id for the form
-const editFormSchema = updateEventSchema.extend({ id: z.string() });
-type EditFormInput = z.infer<typeof editFormSchema>;
+function getDefaultStartsAt(): string {
+  const now = new Date();
+  const today19 = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 19, 0, 0);
+  const target = now < today19 ? today19 : new Date(today19.getTime() + 24 * 60 * 60 * 1000);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${target.getFullYear()}-${pad(target.getMonth() + 1)}-${pad(target.getDate())}T19:00`;
+}
 
 const EVENT_TYPES = [
   { id: "TOURNAMENT", label: "Torneio" },
@@ -19,35 +22,6 @@ const EVENT_TYPES = [
   { id: "SIT_AND_GO", label: "Sit & Go" },
   { id: "HOME_GAME", label: "Home Game" },
 ] as const;
-
-const STATUS_OPTIONS = [
-  { id: "UPCOMING", label: "Em Breve" },
-  { id: "LIVE", label: "Ao Vivo" },
-  { id: "FINISHED", label: "Encerrado" },
-  { id: "CANCELLED", label: "Cancelado" },
-] as const;
-
-interface EventData {
-  id: string;
-  name: string;
-  type: string;
-  description: string | null;
-  buyIn: number;
-  maxPlayers: number;
-  startsAt: Date;
-  endsAt: Date | null;
-  isPrivate: boolean;
-  isMajor: boolean;
-  gtd: number | null;
-  startingStack: string | null;
-  levelDuration: string | null;
-  rebuyPolicy: string | null;
-  venueId: string | null;
-  lat: number | null;
-  lng: number | null;
-  locationLabel: string | null;
-  status: string;
-}
 
 interface VenueOption {
   id: string;
@@ -57,80 +31,80 @@ interface VenueOption {
   lng: number;
 }
 
-function toDatetimeLocal(date: Date): string {
-  const d = new Date(date);
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}T${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`;
+interface Props {
+  venues: VenueOption[];
 }
 
-export function EditEventForm({ event, venues }: { event: EventData; venues: VenueOption[] }) {
+export function CreateEventForm({ venues }: Props) {
   const router = useRouter();
   const [serverError, setServerError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
-  const [eventType, setEventType] = useState(event.type);
-  const [isPrivate, setIsPrivate] = useState(event.isPrivate);
-  const [isMajor, setIsMajor] = useState(event.isMajor);
+  const [eventType, setEventType] = useState<string>("TOURNAMENT");
+  const [isPrivate, setIsPrivate] = useState(false);
+  const [isMajor, setIsMajor] = useState(false);
+  const [publishToCalendar, setPublishToCalendar] = useState(true);
+
+  const defaultStartsAt = useMemo(() => getDefaultStartsAt(), []);
 
   const {
     register,
     handleSubmit,
     setValue,
     formState: { errors, isSubmitting },
-  } = useForm<EditFormInput>({
-    resolver: zodResolver(editFormSchema),
+  } = useForm<CreateEventInput>({
+    resolver: zodResolver(createEventSchema),
     defaultValues: {
-      id: event.id,
-      name: event.name,
-      type: event.type as EditFormInput["type"],
-      status: event.status as EditFormInput["status"],
-      description: event.description ?? "",
-      buyIn: event.buyIn,
-      maxPlayers: event.maxPlayers,
-      startsAt: toDatetimeLocal(event.startsAt),
-      endsAt: event.endsAt ? toDatetimeLocal(event.endsAt) : "",
-      isPrivate: event.isPrivate,
-      isMajor: event.isMajor,
-      gtd: event.gtd ?? undefined,
-      startingStack: event.startingStack ?? "",
-      levelDuration: event.levelDuration ?? "",
-      rebuyPolicy: event.rebuyPolicy ?? "",
-      venueId: event.venueId ?? undefined,
-      lat: event.lat ?? undefined,
-      lng: event.lng ?? undefined,
-      locationLabel: event.locationLabel ?? "",
+      type: "TOURNAMENT",
+      isPrivate: false,
+      isMajor: false,
+      maxPlayers: 60,
+      buyIn: 550,
+      startsAt: defaultStartsAt,
     },
   });
 
   const handleTypeChange = (type: string) => {
     setEventType(type);
-    setValue("type", type as EditFormInput["type"]);
+    setValue("type", type as CreateEventInput["type"]);
   };
 
-  const onSubmit = async (data: EditFormInput) => {
+  const handleVenueChange = (venueId: string) => {
+    const selected = venues.find((v) => v.id === venueId);
+    setValue("venueId", venueId || undefined);
+    if (selected) {
+      setValue("lat", selected.lat);
+      setValue("lng", selected.lng);
+    } else {
+      setValue("lat", undefined);
+      setValue("lng", undefined);
+    }
+  };
+
+  const onSubmit = async (data: CreateEventInput) => {
     setServerError(null);
     try {
-      const result = await updateEvent({ ...data, isPrivate, isMajor });
+      const result = await createEvent({ ...data, isPrivate, isMajor });
       if (result?.serverError) {
         setServerError(result.serverError);
         return;
       }
-      setSuccess(true);
-      setTimeout(() => router.push("/dashboard"), 800);
+      router.push("/dashboard");
     } catch (e) {
-      setServerError(e instanceof Error ? e.message : "Erro ao salvar evento");
+      setServerError(e instanceof Error ? e.message : "Erro ao criar evento");
     }
   };
+
+  const inputCls = "w-full border border-border bg-background text-text text-[13px] px-3 py-2.5 rounded-sm focus:border-[#B8B4AC] transition-colors placeholder:text-text-light";
 
   return (
     <div className="flex flex-col h-screen overflow-hidden">
       <div className="border-b border-border bg-background px-6 py-5">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-[15px] font-semibold">Editar Evento</h1>
-            <p className="tag text-text-muted mt-0.5 truncate max-w-xs">{event.name}</p>
+            <h1 className="text-[15px] font-semibold">Criar Evento</h1>
+            <p className="tag text-text-muted mt-0.5">Novo torneio ou jogo</p>
           </div>
           <button
-            onClick={() => router.push("/dashboard")}
+            onClick={() => router.back()}
             className="tag text-text-muted hover:text-text transition-colors"
           >
             ← Voltar
@@ -140,21 +114,6 @@ export function EditEventForm({ event, venues }: { event: EventData; venues: Ven
 
       <div className="flex-1 overflow-y-auto">
         <form onSubmit={handleSubmit(onSubmit)} className="max-w-2xl mx-auto px-6 py-6 space-y-5">
-          <input type="hidden" {...register("id")} />
-
-          {/* Status */}
-          <div>
-            <label className="tag text-text-muted block mb-2">Status</label>
-            <select
-              {...register("status")}
-              className="w-full border border-border bg-background text-text text-[13px] px-3 py-2.5 rounded-sm focus:border-[#B8B4AC] transition-colors"
-            >
-              {STATUS_OPTIONS.map((s) => (
-                <option key={s.id} value={s.id}>{s.label}</option>
-              ))}
-            </select>
-          </div>
-
           {/* Type */}
           <div>
             <label className="tag text-text-muted block mb-2">Tipo de Evento</label>
@@ -183,7 +142,8 @@ export function EditEventForm({ event, venues }: { event: EventData; venues: Ven
             <input
               {...register("name")}
               type="text"
-              className="w-full border border-border bg-background text-text text-[13px] px-3 py-2.5 rounded-sm focus:border-[#B8B4AC] transition-colors placeholder:text-text-light"
+              placeholder="King's Friday Night — Main Event"
+              className={inputCls}
             />
             {errors.name && <p className="text-[11px] text-red mt-1">{errors.name.message}</p>}
           </div>
@@ -195,7 +155,8 @@ export function EditEventForm({ event, venues }: { event: EventData; venues: Ven
               <input
                 {...register("startsAt")}
                 type="datetime-local"
-                className="w-full border border-border bg-background text-text text-[13px] px-3 py-2.5 rounded-sm focus:border-[#B8B4AC] transition-colors"
+                defaultValue={defaultStartsAt}
+                className={inputCls}
               />
               {errors.startsAt && <p className="text-[11px] text-red mt-1">{errors.startsAt.message}</p>}
             </div>
@@ -204,7 +165,7 @@ export function EditEventForm({ event, venues }: { event: EventData; venues: Ven
               <input
                 {...register("endsAt")}
                 type="datetime-local"
-                className="w-full border border-border bg-background text-text text-[13px] px-3 py-2.5 rounded-sm focus:border-[#B8B4AC] transition-colors"
+                className={inputCls}
               />
               <p className="text-[10px] text-text-light mt-1">Deixe em branco se não souber</p>
               {errors.endsAt && <p className="text-[11px] text-red mt-1">{errors.endsAt.message}</p>}
@@ -220,7 +181,8 @@ export function EditEventForm({ event, venues }: { event: EventData; venues: Ven
                 type="number"
                 min={0}
                 step={10}
-                className="w-full border border-border bg-background text-text text-[13px] px-3 py-2.5 rounded-sm focus:border-[#B8B4AC] transition-colors"
+                placeholder="550"
+                className={inputCls}
               />
               {errors.buyIn && <p className="text-[11px] text-red mt-1">{errors.buyIn.message}</p>}
             </div>
@@ -231,21 +193,20 @@ export function EditEventForm({ event, venues }: { event: EventData; venues: Ven
                 type="number"
                 min={2}
                 max={1000}
-                className="w-full border border-border bg-background text-text text-[13px] px-3 py-2.5 rounded-sm focus:border-[#B8B4AC] transition-colors"
+                placeholder="120"
+                className={inputCls}
               />
               {errors.maxPlayers && <p className="text-[11px] text-red mt-1">{errors.maxPlayers.message}</p>}
             </div>
             <div>
               <label className="tag text-text-muted block mb-2">GTD (R$)</label>
               <input
-                {...register("gtd", {
-                  valueAsNumber: true,
-                  setValueAs: (v) => (v === "" ? undefined : Number(v)),
-                })}
+                {...register("gtd", { valueAsNumber: true, setValueAs: (v) => v === "" ? undefined : Number(v) })}
                 type="number"
                 min={0}
                 step={1000}
-                className="w-full border border-border bg-background text-text text-[13px] px-3 py-2.5 rounded-sm focus:border-[#B8B4AC] transition-colors"
+                placeholder="50000"
+                className={inputCls}
               />
             </div>
           </div>
@@ -258,7 +219,7 @@ export function EditEventForm({ event, venues }: { event: EventData; venues: Ven
                 {...register("startingStack")}
                 type="text"
                 placeholder="30.000 fichas"
-                className="w-full border border-border bg-background text-text text-[13px] px-3 py-2.5 rounded-sm focus:border-[#B8B4AC] transition-colors placeholder:text-text-light"
+                className={inputCls}
               />
             </div>
             <div>
@@ -267,7 +228,7 @@ export function EditEventForm({ event, venues }: { event: EventData; venues: Ven
                 {...register("levelDuration")}
                 type="text"
                 placeholder="30 minutos"
-                className="w-full border border-border bg-background text-text text-[13px] px-3 py-2.5 rounded-sm focus:border-[#B8B4AC] transition-colors placeholder:text-text-light"
+                className={inputCls}
               />
             </div>
           </div>
@@ -278,53 +239,50 @@ export function EditEventForm({ event, venues }: { event: EventData; venues: Ven
               {...register("rebuyPolicy")}
               type="text"
               placeholder="Re-entry até o nível 8"
-              className="w-full border border-border bg-background text-text text-[13px] px-3 py-2.5 rounded-sm focus:border-[#B8B4AC] transition-colors placeholder:text-text-light"
+              className={inputCls}
             />
           </div>
 
-          {/* Venue select */}
-          {venues.length > 0 && (
-            <div>
-              <label className="tag text-text-muted block mb-2">Casa de poker</label>
-              <select
-                {...register("venueId")}
-                onChange={(e) => {
-                  const selected = venues.find((v) => v.id === e.target.value);
-                  setValue("venueId", e.target.value || undefined);
-                  if (selected) {
-                    setValue("lat", selected.lat);
-                    setValue("lng", selected.lng);
-                  } else {
-                    setValue("lat", undefined);
-                    setValue("lng", undefined);
-                  }
-                }}
-                className="w-full border border-border bg-background text-text text-[13px] px-3 py-2.5 rounded-sm focus:border-[#B8B4AC] transition-colors"
-              >
-                <option value="">— Nenhuma —</option>
-                {venues.map((v) => (
-                  <option key={v.id} value={v.id}>
-                    {v.name} ({v.district})
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
-
-          {/* Location label + coordinates */}
+          {/* Location section */}
           <div className="border border-border rounded-sm p-4 space-y-4">
             <div className="tag text-text-muted">Localização</div>
 
+            {/* Venue selector — only if organizer has venues */}
+            {venues.length > 0 && (
+              <div>
+                <label className="tag text-text-muted block mb-2">Casa de poker</label>
+                <select
+                  onChange={(e) => handleVenueChange(e.target.value)}
+                  className={inputCls}
+                >
+                  <option value="">— Nenhuma (evento avulso) —</option>
+                  {venues.map((v) => (
+                    <option key={v.id} value={v.id}>
+                      {v.name} ({v.district})
+                    </option>
+                  ))}
+                </select>
+                <p className="text-[10px] text-text-light mt-1">
+                  Selecionar uma casa preenche as coordenadas automaticamente
+                </p>
+              </div>
+            )}
+
+            {/* Location label */}
             <div>
               <label className="tag text-text-muted block mb-2">Bairro / Local</label>
               <input
                 {...register("locationLabel")}
                 type="text"
                 placeholder="Ex: Itaim Bibi, São Paulo"
-                className="w-full border border-border bg-background text-text text-[13px] px-3 py-2.5 rounded-sm focus:border-[#B8B4AC] transition-colors placeholder:text-text-light"
+                className={inputCls}
               />
+              <p className="text-[10px] text-text-light mt-1">
+                Mostrado no card quando não há casa vinculada
+              </p>
             </div>
 
+            {/* Manual lat/lng */}
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="tag text-text-muted block mb-2">Latitude (opcional)</label>
@@ -335,7 +293,7 @@ export function EditEventForm({ event, venues }: { event: EventData; venues: Ven
                   type="number"
                   step="any"
                   placeholder="Ex: -23.5505"
-                  className="w-full border border-border bg-background text-text text-[13px] px-3 py-2.5 rounded-sm focus:border-[#B8B4AC] transition-colors placeholder:text-text-light"
+                  className={inputCls}
                 />
               </div>
               <div>
@@ -347,7 +305,7 @@ export function EditEventForm({ event, venues }: { event: EventData; venues: Ven
                   type="number"
                   step="any"
                   placeholder="Ex: -46.6333"
-                  className="w-full border border-border bg-background text-text text-[13px] px-3 py-2.5 rounded-sm focus:border-[#B8B4AC] transition-colors placeholder:text-text-light"
+                  className={inputCls}
                 />
               </div>
             </div>
@@ -390,6 +348,12 @@ export function EditEventForm({ event, venues }: { event: EventData; venues: Ven
                   setValue("isPrivate", next);
                 },
               },
+              {
+                label: "Publicar no Calendário",
+                desc: "Visível no feed de todos os jogadores",
+                value: publishToCalendar,
+                toggle: () => setPublishToCalendar((v) => !v),
+              },
             ].map((item) => (
               <div
                 key={item.label}
@@ -424,26 +388,20 @@ export function EditEventForm({ event, venues }: { event: EventData; venues: Ven
             </div>
           )}
 
-          {success && (
-            <div className="text-[12px] text-green bg-green/5 border border-green/20 px-3 py-2 rounded-sm">
-              Evento salvo! Redirecionando...
-            </div>
-          )}
-
           <div className="flex gap-3 pt-2">
             <button
               type="button"
-              onClick={() => router.push("/dashboard")}
+              onClick={() => router.back()}
               className="flex-1 border border-border py-3 tag text-text-muted hover:text-text hover:border-[#B8B4AC] transition-colors rounded-sm"
             >
               Cancelar
             </button>
             <button
               type="submit"
-              disabled={isSubmitting || success}
+              disabled={isSubmitting}
               className="flex-1 bg-text text-background py-3 text-[12px] font-semibold tracking-wide hover:bg-[#3A3835] active:scale-[0.98] transition-all duration-150 rounded-sm disabled:opacity-60"
             >
-              {isSubmitting ? "Salvando..." : "Salvar alterações"}
+              {isSubmitting ? "Criando..." : "Criar Evento"}
             </button>
           </div>
         </form>
