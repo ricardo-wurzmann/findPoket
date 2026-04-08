@@ -31,7 +31,7 @@ export const signUp = actionClient
         email: parsedInput.email,
         name: parsedInput.name,
         handle: parsedInput.handle || null,
-        role: parsedInput.role as "PLAYER" | "ORGANIZER",
+        role: (parsedInput.role ?? "PLAYER") as "PLAYER" | "ORGANIZER",
         city: parsedInput.city ?? null,
       },
     });

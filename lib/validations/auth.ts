@@ -18,7 +18,7 @@ export const signUpSchema = z.object({
       z.string().min(3, "Handle deve ter ao menos 3 caracteres").optional()
     )
     .optional(),
-  role: z.enum(["PLAYER", "ORGANIZER"]).default("PLAYER"),
+    role: z.enum(["PLAYER", "ORGANIZER"]),
   city: z.string().optional(),
 });
 
