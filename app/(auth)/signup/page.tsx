@@ -2,15 +2,17 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { signUp } from "@/lib/actions/auth";
 import { signUpSchema, type SignUpInput } from "@/lib/validations/auth";
 import { ModeToggle } from "@/components/layout/ModeToggle";
 
+function isRedirectError(msg: string) {
+  return msg.includes("NEXT_REDIRECT") || msg.includes("redirect");
+}
+
 export default function SignupPage() {
-  const router = useRouter();
   const [serverError, setServerError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [role, setRole] = useState<"PLAYER" | "ORGANIZER">("PLAYER");
@@ -36,16 +38,19 @@ export default function SignupPage() {
 
     try {
       const result = await signUp({ ...data, role });
-      if (result?.serverError) {
-        setServerError(result.serverError);
-        return;
+      // Server redirects on success; only surface genuine errors
+      const errorMsg = result?.serverError;
+      if (errorMsg && !isRedirectError(errorMsg)) {
+        setServerError(errorMsg);
+        setLoading(false);
       }
-      router.push(role === "ORGANIZER" ? "/dashboard" : "/feed");
-      router.refresh();
+      // If redirect happened the browser navigates — keep spinner visible
     } catch (e) {
-      setServerError(e instanceof Error ? e.message : "Erro ao criar conta");
-    } finally {
-      setLoading(false);
+      const msg = e instanceof Error ? e.message : "Erro ao criar conta";
+      if (!isRedirectError(msg)) {
+        setServerError(msg);
+        setLoading(false);
+      }
     }
   };
 

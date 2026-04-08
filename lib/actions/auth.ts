@@ -36,7 +36,11 @@ export const signUp = actionClient
       },
     });
 
-    return { success: true, role: parsedInput.role };
+    if (parsedInput.role === "ORGANIZER") {
+      redirect("/dashboard");
+    } else {
+      redirect("/feed");
+    }
   });
 
 export const signIn = actionClient
@@ -57,7 +61,13 @@ export const signIn = actionClient
       where: { supabaseId: data.user.id },
     });
 
-    return { success: true, role: dbUser?.role ?? "PLAYER" };
+    const role = dbUser?.role ?? "PLAYER";
+
+    if (role === "ORGANIZER") {
+      redirect("/dashboard");
+    } else {
+      redirect("/feed");
+    }
   });
 
 export const signOut = actionClient

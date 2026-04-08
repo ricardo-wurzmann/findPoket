@@ -2,14 +2,16 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { signIn } from "@/lib/actions/auth";
 import { signInSchema, type SignInInput } from "@/lib/validations/auth";
 
+function isRedirectError(msg: string) {
+  return msg.includes("NEXT_REDIRECT") || msg.includes("redirect");
+}
+
 export default function LoginPage() {
-  const router = useRouter();
   const [serverError, setServerError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -27,17 +29,19 @@ export default function LoginPage() {
 
     try {
       const result = await signIn(data);
-      if (result?.serverError) {
-        setServerError(result.serverError);
-        return;
+      // Server redirects on success; only surface genuine errors
+      const errorMsg = result?.serverError;
+      if (errorMsg && !isRedirectError(errorMsg)) {
+        setServerError(errorMsg);
+        setLoading(false);
       }
-      const role = result?.data?.role;
-      router.push(role === "ORGANIZER" ? "/dashboard" : "/feed");
-      router.refresh();
+      // If redirect happened the browser navigates — keep spinner visible
     } catch (e) {
-      setServerError(e instanceof Error ? e.message : "Erro ao entrar");
-    } finally {
-      setLoading(false);
+      const msg = e instanceof Error ? e.message : "Erro ao entrar";
+      if (!isRedirectError(msg)) {
+        setServerError(msg);
+        setLoading(false);
+      }
     }
   };
 
