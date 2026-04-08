@@ -15,10 +15,22 @@ export default async function OrganizerLayout({
 
   if (!user) redirect("/login");
 
-  const dbUser = await prisma.user.findUnique({
+  let dbUser = await prisma.user.findUnique({
     where: { supabaseId: user.id },
     select: { id: true, name: true, handle: true, role: true },
   });
+
+  // Race condition: Prisma write may not be visible yet right after signup redirect.
+  // Retry once after a short delay before giving up.
+  if (!dbUser) {
+    await new Promise((resolve) => setTimeout(resolve, 600));
+    dbUser = await prisma.user.findUnique({
+      where: { supabaseId: user.id },
+      select: { id: true, name: true, handle: true, role: true },
+    });
+  }
+
+  console.log("[OrganizerLayout] supabaseId:", user.id, "dbUser:", JSON.stringify(dbUser));
 
   if (!dbUser || dbUser.role !== "ORGANIZER") {
     redirect("/feed");

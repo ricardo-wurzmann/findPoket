@@ -33,6 +33,8 @@ export default function SignupPage() {
   };
 
   const onSubmit = async (data: SignUpInput) => {
+    console.log("[signup form] submitting with role:", role);
+    console.log("[signup form] form data:", JSON.stringify(data));
     setLoading(true);
     setServerError(null);
 

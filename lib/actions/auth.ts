@@ -10,6 +10,9 @@ import { signInSchema, signUpSchema } from "@/lib/validations/auth";
 export const signUp = actionClient
   .schema(signUpSchema)
   .action(async ({ parsedInput }) => {
+    console.log("[signUp] parsedInput.role:", parsedInput.role);
+    console.log("[signUp] full parsedInput:", JSON.stringify(parsedInput));
+
     const supabase = await createClient();
 
     const { data, error } = await supabase.auth.signUp({
@@ -31,10 +34,13 @@ export const signUp = actionClient
         email: parsedInput.email,
         name: parsedInput.name,
         handle: parsedInput.handle || null,
-        role: (parsedInput.role ?? "PLAYER") as "PLAYER" | "ORGANIZER",
+        role: parsedInput.role as "PLAYER" | "ORGANIZER",
         city: parsedInput.city ?? null,
       },
     });
+
+    console.log("[signUp] user created with role:", parsedInput.role);
+    console.log("[signUp] redirecting to:", parsedInput.role === "ORGANIZER" ? "/dashboard" : "/feed");
 
     if (parsedInput.role === "ORGANIZER") {
       redirect("/dashboard");
@@ -61,7 +67,12 @@ export const signIn = actionClient
       where: { supabaseId: data.user.id },
     });
 
+    console.log("[signIn] dbUser.role:", dbUser?.role);
+    console.log("[signIn] dbUser:", JSON.stringify(dbUser));
+
     const role = dbUser?.role ?? "PLAYER";
+
+    console.log("[signIn] redirecting to:", role === "ORGANIZER" ? "/dashboard" : "/feed");
 
     if (role === "ORGANIZER") {
       redirect("/dashboard");
