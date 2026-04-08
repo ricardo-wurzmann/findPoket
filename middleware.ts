@@ -29,11 +29,6 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  if (user && isAuthPage) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/feed";
-    return NextResponse.redirect(url);
-  }
 
   // Role check for organizer routes is handled at the layout level
   // (Prisma can't run in Edge middleware)
