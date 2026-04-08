@@ -1,0 +1,141 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model User {
+  id            String        @id @default(uuid())
+  supabaseId    String        @unique
+  email         String        @unique
+  name          String
+  handle        String?       @unique
+  city          String?
+  role          Role          @default(PLAYER)
+  bio           String?
+  avatarUrl     String?
+  venues        Venue[]
+  events        Event[]
+  registrations Registration[]
+  stats         PlayerStats?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+}
+
+enum Role {
+  PLAYER
+  ORGANIZER
+}
+
+model PlayerStats {
+  id           String  @id @default(uuid())
+  userId       String  @unique
+  user         User    @relation(fields: [userId], references: [id])
+  tournaments  Int     @default(0)
+  itm          Float   @default(0)
+  totalPrize   Float   @default(0)
+  roi          Float   @default(0)
+  bestFinish   String?
+}
+
+model Venue {
+  id          String   @id @default(uuid())
+  name        String
+  city        String
+  district    String
+  address     String
+  whatsapp    String
+  website     String?
+  openTime    String
+  closeTime   String
+  tableCount  String
+  lat         Float
+  lng         Float
+  ownerId     String
+  owner       User     @relation(fields: [ownerId], references: [id])
+  events      Event[]
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+}
+
+model Event {
+  id            String        @id @default(uuid())
+  name          String
+  type          EventType
+  description   String?
+  buyIn         Float
+  maxPlayers    Int
+  startsAt      DateTime
+  endsAt        DateTime?
+  isPrivate     Boolean       @default(false)
+  isMajor       Boolean       @default(false)
+  gtd           Float?
+  startingStack String?
+  levelDuration String?
+  rebuyPolicy   String?
+  venueId       String?
+  venue         Venue?        @relation(fields: [venueId], references: [id])
+  organizerId   String
+  organizer     User          @relation(fields: [organizerId], references: [id])
+  registrations Registration[]
+  lat           Float?
+  lng           Float?
+  locationLabel String?
+  status        EventStatus   @default(UPCOMING)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+}
+
+enum EventType {
+  TOURNAMENT
+  CASH_GAME
+  HOME_GAME
+  SIT_AND_GO
+}
+
+enum EventStatus {
+  UPCOMING
+  LIVE
+  FINISHED
+  CANCELLED
+}
+
+model Registration {
+  id        String    @id @default(uuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id])
+  eventId   String
+  event     Event     @relation(fields: [eventId], references: [id])
+  status    RegStatus @default(PENDING)
+  createdAt DateTime  @default(now())
+
+  @@unique([userId, eventId])
+}
+
+enum RegStatus {
+  PENDING
+  APPROVED
+  DENIED
+}
+
+model DealerRequest {
+  id          String   @id @default(uuid())
+  gameType    String
+  dealerQty   Int
+  duration    String
+  address     String
+  district    String
+  city        String
+  venueName   String?
+  reference   String?
+  whatsapp    String
+  notes       String?
+  scheduledAt DateTime
+  protocol    String   @unique
+  status      String   @default("PENDING")
+  createdAt   DateTime @default(now())
+}

@@ -1,0 +1,247 @@
+"use client";
+
+import { useRef, useCallback, useEffect, useState } from "react";
+import Map, { Marker, NavigationControl, type MapRef } from "react-map-gl";
+import { EventPin } from "./EventPin";
+import type { Event } from "@/types";
+import "mapbox-gl/dist/mapbox-gl.css";
+
+export interface CityCoord {
+  lng: number;
+  lat: number;
+  zoom: number;
+}
+
+export const CITY_COORDS: Record<string, CityCoord> = {
+  "São Paulo":        { lng: -46.6333, lat: -23.5505, zoom: 12 },
+  "Rio de Janeiro":   { lng: -43.1729, lat: -22.9068, zoom: 12 },
+  "Belo Horizonte":   { lng: -43.9378, lat: -19.9191, zoom: 12 },
+  "Curitiba":         { lng: -49.2654, lat: -25.4284, zoom: 12 },
+  "Porto Alegre":     { lng: -51.2177, lat: -30.0346, zoom: 12 },
+  "Foz do Iguaçu":    { lng: -54.5854, lat: -25.5163, zoom: 12 },
+  "Gramado":          { lng: -50.8769, lat: -29.3783, zoom: 13 },
+  "Balneário Camboriú": { lng: -48.6358, lat: -26.9906, zoom: 13 },
+};
+
+interface UserPin {
+  lng: number;
+  lat: number;
+}
+
+interface EventMapProps {
+  events: Event[];
+  selectedEvent: Event | null;
+  onEventSelect: (event: Event) => void;
+  city?: string;
+}
+
+const PIN_PULSE_CSS = `
+  @keyframes pinLiveRing1 {
+    0%   { transform: scale(1);   opacity: 0.6; }
+    100% { transform: scale(2.8); opacity: 0; }
+  }
+  @keyframes pinLiveRing2 {
+    0%   { transform: scale(1);   opacity: 0.6; }
+    100% { transform: scale(2.4); opacity: 0; }
+  }
+  @keyframes pinUpcomingRing {
+    0%   { transform: scale(1);   opacity: 0.5; }
+    100% { transform: scale(2.6); opacity: 0; }
+  }
+  @keyframes pinMajorRing1 {
+    0%   { transform: scale(1);   opacity: 0.5; }
+    100% { transform: scale(2.8); opacity: 0; }
+  }
+  @keyframes pinMajorRing2 {
+    0%   { transform: scale(1);   opacity: 0.5; }
+    100% { transform: scale(2.4); opacity: 0; }
+  }
+  @keyframes userLocPulse {
+    0%   { transform: scale(1);   opacity: 0.7; }
+    100% { transform: scale(3);   opacity: 0; }
+  }
+
+  .pin-live::before, .pin-live::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background: #22C55E;
+    animation: pinLiveRing1 1.8s ease-out infinite;
+  }
+  .pin-live::after {
+    animation: pinLiveRing2 1.8s ease-out 0.6s infinite;
+  }
+
+  .pin-upcoming::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background: #D97706;
+    animation: pinUpcomingRing 2.4s ease-out infinite;
+  }
+
+  .pin-major::before, .pin-major::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background: #D97706;
+    animation: pinMajorRing1 2.4s ease-out infinite;
+  }
+  .pin-major::after {
+    animation: pinMajorRing2 2.4s ease-out 0.8s infinite;
+  }
+
+  .user-loc-pin::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background: #ffffff;
+    animation: userLocPulse 1.6s ease-out infinite;
+  }
+`;
+
+export function EventMap({ events, selectedEvent, onEventSelect, city }: EventMapProps) {
+  const mapRef = useRef<MapRef>(null);
+  const [userPin, setUserPin] = useState<UserPin | null>(null);
+  const [locError, setLocError] = useState<string | null>(null);
+
+  // Fly to city when city prop changes
+  useEffect(() => {
+    if (!city || !mapRef.current) return;
+    const coords = CITY_COORDS[city];
+    if (!coords) return;
+    mapRef.current.flyTo({
+      center: [coords.lng, coords.lat],
+      zoom: coords.zoom,
+      duration: 1200,
+    });
+  }, [city]);
+
+  const fitBounds = useCallback(() => {
+    const eventsWithCoords = events.filter((e) => e.lat && e.lng);
+    if (eventsWithCoords.length === 0 || !mapRef.current) return;
+
+    if (eventsWithCoords.length === 1) {
+      mapRef.current.flyTo({
+        center: [eventsWithCoords[0].lng!, eventsWithCoords[0].lat!],
+        zoom: 14,
+        duration: 1000,
+      });
+      return;
+    }
+
+    const lngs = eventsWithCoords.map((e) => e.lng!);
+    const lats = eventsWithCoords.map((e) => e.lat!);
+    mapRef.current.fitBounds(
+      [[Math.min(...lngs), Math.min(...lats)], [Math.max(...lngs), Math.max(...lats)]],
+      { padding: 80, duration: 1000 }
+    );
+  }, [events]);
+
+  // Only fit bounds on initial events load, not on every city change
+  const hasFitRef = useRef(false);
+  useEffect(() => {
+    if (!hasFitRef.current && events.length > 0) {
+      hasFitRef.current = true;
+      fitBounds();
+    }
+  }, [events, fitBounds]);
+
+  const handleUserLocation = () => {
+    setLocError(null);
+    if (!navigator.geolocation) {
+      setLocError("Localização não disponível");
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const { longitude, latitude } = pos.coords;
+        setUserPin({ lng: longitude, lat: latitude });
+        mapRef.current?.flyTo({ center: [longitude, latitude], zoom: 14, duration: 1200 });
+      },
+      () => {
+        setLocError("Localização não disponível");
+        setTimeout(() => setLocError(null), 3000);
+      }
+    );
+  };
+
+  const initialCity = CITY_COORDS["São Paulo"];
+
+  return (
+    <div className="relative w-full h-full">
+      <style>{PIN_PULSE_CSS}</style>
+
+      <Map
+        ref={mapRef}
+        mapboxAccessToken={process.env.NEXT_PUBLIC_MAPBOX_TOKEN}
+        initialViewState={{
+          longitude: initialCity.lng,
+          latitude: initialCity.lat,
+          zoom: initialCity.zoom,
+        }}
+        style={{ width: "100%", height: "100%" }}
+        mapStyle="mapbox://styles/mapbox/dark-v11"
+        reuseMaps
+      >
+        <NavigationControl position="bottom-right" showCompass={false} />
+
+        {/* Event pins */}
+        {events
+          .filter((e) => e.lat && e.lng)
+          .map((event) => (
+            <Marker
+              key={event.id}
+              longitude={event.lng!}
+              latitude={event.lat!}
+              anchor="center"
+            >
+              <EventPin
+                event={event}
+                onClick={() => onEventSelect(event)}
+                isSelected={selectedEvent?.id === event.id}
+              />
+            </Marker>
+          ))}
+
+        {/* User location pin */}
+        {userPin && (
+          <Marker longitude={userPin.lng} latitude={userPin.lat} anchor="center">
+            <div
+              className="user-loc-pin relative rounded-full"
+              style={{
+                width: 14,
+                height: 14,
+                backgroundColor: "#ffffff",
+                border: "2px solid #1E1D1A",
+              }}
+            />
+          </Marker>
+        )}
+      </Map>
+
+      {/* User location button */}
+      <button
+        onClick={handleUserLocation}
+        className="absolute bottom-14 right-3 bg-[#1E1D1A] border border-[#2A2926] px-2.5 py-1.5 rounded-sm flex items-center gap-1.5 transition-colors hover:border-[#6B6660]"
+        title="Usar minha localização"
+      >
+        <span className="text-[#9B9690] text-[11px]">◎</span>
+        <span className="text-[10px] font-medium tracking-wider uppercase text-[#9B9690]">
+          Minha localização
+        </span>
+      </button>
+
+      {/* Location error toast */}
+      {locError && (
+        <div className="absolute bottom-24 right-3 bg-[#1E1D1A] border border-[#2A2926] px-3 py-2 rounded-sm">
+          <span className="text-[11px] text-[#9B9690]">{locError}</span>
+        </div>
+      )}
+    </div>
+  );
+}
