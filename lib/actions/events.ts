@@ -66,10 +66,11 @@ export const getEventById = authActionClient
 export const createEvent = organizerActionClient
   .schema(createEventSchema)
   .action(async ({ parsedInput, ctx }) => {
-    const { endsAt, ...rest } = parsedInput;
+    const { endsAt, buyIn, ...rest } = parsedInput;
     const event = await prisma.event.create({
       data: {
         ...rest,
+        buyIn: buyIn ?? 0,
         startsAt: new Date(parsedInput.startsAt),
         ...(endsAt ? { endsAt: new Date(endsAt) } : {}),
         organizerId: ctx.dbUser.id,

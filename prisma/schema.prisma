@@ -9,25 +9,26 @@ datasource db {
 }
 
 model User {
-  id            String        @id @default(uuid())
-  supabaseId    String        @unique
-  email         String        @unique
-  name          String
-  handle        String?       @unique
-  city          String?
-  role          Role          @default(PLAYER)
-  bio           String?
-  avatarUrl     String?
-  birthDate     DateTime?
-  phone         String?
-  profession    String?
-  hendonMob     String?
-  venues        Venue[]
-  events        Event[]
-  registrations Registration[]
-  stats         PlayerStats?
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
+  id              String           @id @default(uuid())
+  supabaseId      String           @unique
+  email           String           @unique
+  name            String
+  handle          String?          @unique
+  city            String?
+  role            Role             @default(PLAYER)
+  bio             String?
+  avatarUrl       String?
+  birthDate       DateTime?
+  phone           String?
+  profession      String?
+  hendonMob       String?
+  venues          Venue[]
+  events          Event[]
+  registrations   Registration[]
+  venueInterests  VenueInterest[]
+  stats           PlayerStats?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
 }
 
 enum Role {
@@ -47,7 +48,7 @@ model PlayerStats {
 }
 
 model Venue {
-  id          String   @id @default(uuid())
+  id          String          @id @default(uuid())
   name        String
   city        String
   district    String
@@ -60,10 +61,22 @@ model Venue {
   lat         Float
   lng         Float
   ownerId     String
-  owner       User     @relation(fields: [ownerId], references: [id])
+  owner       User            @relation(fields: [ownerId], references: [id])
   events      Event[]
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
+  interests   VenueInterest[]
+  isActive    Boolean         @default(true)
+  createdAt   DateTime        @default(now())
+}
+
+model VenueInterest {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  venueId   String
+  venue     Venue    @relation(fields: [venueId], references: [id])
+  createdAt DateTime @default(now())
+
+  @@unique([userId, venueId])
 }
 
 model Event {

@@ -1,12 +1,12 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { useEvents } from "@/hooks/useEvents";
 import { useRealtime } from "@/hooks/useRealtime";
 import { EventList } from "@/components/events/EventList";
 import { EventModal } from "@/components/events/EventModal";
-import { VenueModal } from "@/components/venues/VenueModal";
 import { MapSkeleton } from "@/components/map/MapSkeleton";
 import { cn } from "@/lib/utils";
 import type { Event, EventFilter, ViewMode, Venue } from "@/types";
@@ -28,59 +28,72 @@ const CITIES = [
   "Balneário Camboriú",
 ];
 
-const filters: { id: EventFilter; label: string }[] = [
+const FILTERS: { id: EventFilter; label: string }[] = [
   { id: "all", label: "Todos" },
-  { id: "TOURNAMENT", label: "Torneio" },
+  { id: "venues", label: "Casas" },
+  { id: "TOURNAMENT", label: "Torneios" },
   { id: "CASH_GAME", label: "Cash Game" },
   { id: "HOME_GAME", label: "Home Game" },
-  { id: "open", label: "Abertos" },
 ];
 
-type VenueWithEvents = Venue & { events?: Event[] };
+type VenueWithMeta = Venue & {
+  events?: Event[];
+  _count?: { events?: number; interests?: number };
+};
+
+function isOpenNow(openTime: string, closeTime: string): boolean {
+  const now = new Date();
+  const [oh, om] = openTime.split(":").map(Number);
+  const [ch, cm] = closeTime.split(":").map(Number);
+  const nowMins = now.getHours() * 60 + now.getMinutes();
+  const openMins = oh * 60 + om;
+  let closeMins = ch * 60 + cm;
+  if (closeMins < openMins) closeMins += 24 * 60;
+  const adjusted = nowMins < openMins ? nowMins + 24 * 60 : nowMins;
+  return adjusted >= openMins && adjusted <= closeMins;
+}
 
 export default function FeedPage() {
+  const router = useRouter();
   const [view, setView] = useState<ViewMode>("map");
   const [city, setCity] = useState("São Paulo");
   const [filter, setFilter] = useState<EventFilter>("all");
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
-  const [selectedVenue, setSelectedVenue] = useState<VenueWithEvents | null>(null);
   const [venues, setVenues] = useState<MapVenue[]>([]);
-  const [venueMap, setVenueMap] = useState<Record<string, VenueWithEvents>>({});
+  const [allVenues, setAllVenues] = useState<VenueWithMeta[]>([]);
 
-  const { events, loading } = useEvents({
+  // Only fetch events when the filter isn't venues-only
+  const eventType = (filter !== "all" && filter !== "venues") ? filter : undefined;
+
+  const { events, loading: eventsLoading } = useEvents({
     city,
-    type: filter !== "all" && filter !== "open" ? filter : undefined,
-    onlyOpen: filter === "open",
+    type: eventType,
   });
 
   const eventIds = useMemo(() => events.map((e) => e.id), [events]);
   const realtimeCounts = useRealtime(eventIds);
 
-  // Fetch venues once for the map
+  // Fetch venues once for the map + venue filter list
   useEffect(() => {
     const fetchVenues = async () => {
       try {
         const res = await fetch("/api/venues");
         if (!res.ok) return;
         const data = await res.json();
-        const allVenues: VenueWithEvents[] = data.venues ?? [];
-        const map: Record<string, VenueWithEvents> = {};
-        const pins: MapVenue[] = [];
-        for (const v of allVenues) {
-          map[v.id] = v;
-          if (v.lat && v.lng) {
-            pins.push({
+        const fetched: VenueWithMeta[] = data.venues ?? [];
+        setAllVenues(fetched);
+        setVenues(
+          fetched
+            .filter((v) => v.lat && v.lng)
+            .map((v) => ({
               id: v.id,
               name: v.name,
               lat: v.lat,
               lng: v.lng,
               district: v.district,
               city: v.city,
-            });
-          }
-        }
-        setVenueMap(map);
-        setVenues(pins);
+            }))
+        );
       } catch {
         // ignore
       }
@@ -88,10 +101,16 @@ export default function FeedPage() {
     fetchVenues();
   }, []);
 
-  const handleVenueSelect = (venueId: string) => {
-    const venue = venueMap[venueId];
-    if (venue) setSelectedVenue(venue);
-  };
+  // Derive what pins to show on map based on filter
+  const mapEvents: Event[] =
+    filter === "venues" ? [] : events;
+
+  const mapVenues: MapVenue[] =
+    filter === "TOURNAMENT" || filter === "HOME_GAME"
+      ? []
+      : venues;
+
+  const loading = eventsLoading;
 
   return (
     <div className="flex flex-col h-screen overflow-hidden">
@@ -99,14 +118,15 @@ export default function FeedPage() {
       <div className="border-b border-border bg-background px-4 lg:px-6 py-4 pl-16 lg:pl-6">
         <div className="flex items-start justify-between mb-4">
           <div>
-            <h1 className="text-[15px] font-semibold text-text">Eventos de Poker</h1>
+            <h1 className="text-[15px] font-semibold text-text">Poker em {city}</h1>
             <p className="tag text-text-muted mt-0.5">
               {loading
                 ? "Carregando..."
-                : `${events.length} eventos em ${city}`}
+                : filter === "venues"
+                ? `${allVenues.length} casas cadastradas`
+                : `${events.length} eventos`}
             </p>
           </div>
-          {/* Card fan SVG */}
           <svg width="64" height="48" viewBox="0 0 64 48" fill="none" className="opacity-20 shrink-0">
             <rect x="2" y="20" width="24" height="34" rx="2" stroke="#1E1D1A" strokeWidth="1.5" transform="rotate(-20 2 20)" />
             <rect x="20" y="14" width="24" height="34" rx="2" stroke="#1E1D1A" strokeWidth="1.5" transform="rotate(-5 20 14)" />
@@ -134,7 +154,7 @@ export default function FeedPage() {
 
           {/* Filter chips */}
           <div className="flex gap-1.5 flex-wrap">
-            {filters.map((f) => (
+            {FILTERS.map((f) => (
               <button
                 key={f.id}
                 onClick={() => setFilter(f.id)}
@@ -179,15 +199,75 @@ export default function FeedPage() {
         {view === "map" ? (
           <div className="h-full">
             <EventMap
-              events={events}
-              venues={venues}
+              events={mapEvents}
+              venues={mapVenues}
               selectedEvent={selectedEvent}
               onEventSelect={setSelectedEvent}
-              onVenueSelect={handleVenueSelect}
               city={city}
             />
           </div>
+        ) : filter === "venues" ? (
+          /* Venue list */
+          <div className="h-full overflow-y-auto">
+            {allVenues.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-40 text-text-muted">
+                <span className="text-4xl mb-3 opacity-20">◉</span>
+                <p className="tag">Nenhuma casa cadastrada</p>
+              </div>
+            ) : (
+              <div className="divide-y divide-border">
+                {allVenues.map((venue) => {
+                  const open = isOpenNow(venue.openTime, venue.closeTime);
+                  const todayEvents = venue.events?.filter((e) => {
+                    const d = new Date(e.startsAt);
+                    const today = new Date();
+                    return d.toDateString() === today.toDateString();
+                  }) ?? [];
+                  const tournamentCount = venue._count?.events ?? 0;
+                  return (
+                    <button
+                      key={venue.id}
+                      onClick={() => router.push(`/venues/${venue.id}`)}
+                      className="w-full text-left flex items-center gap-4 px-6 py-4 hover:bg-surface transition-colors"
+                    >
+                      {/* Status dot */}
+                      <div
+                        className={cn(
+                          "w-2 h-2 rounded-full shrink-0",
+                          open ? "bg-green" : "bg-border"
+                        )}
+                      />
+
+                      {/* Info */}
+                      <div className="flex-1 min-w-0">
+                        <div className="text-[13px] font-medium truncate">{venue.name}</div>
+                        <div className="tag text-text-muted mt-0.5">
+                          {venue.district} · {venue.openTime}–{venue.closeTime}
+                        </div>
+                        {todayEvents.length > 0 && (
+                          <div className="tag text-amber mt-0.5">
+                            {todayEvents[0].name}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Right */}
+                      <div className="text-right shrink-0">
+                        <div className="tag text-text-muted">{venue.tableCount} mesas</div>
+                        {tournamentCount > 0 && (
+                          <div className="tag text-amber mt-0.5">
+                            {tournamentCount} torneio{tournamentCount !== 1 ? "s" : ""}
+                          </div>
+                        )}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         ) : (
+          /* Event list */
           <div className="h-full overflow-hidden">
             <EventList
               events={events}
@@ -203,12 +283,6 @@ export default function FeedPage() {
         event={selectedEvent}
         registeredCount={selectedEvent ? realtimeCounts[selectedEvent.id] : undefined}
         onClose={() => setSelectedEvent(null)}
-      />
-
-      {/* Venue Modal */}
-      <VenueModal
-        venue={selectedVenue}
-        onClose={() => setSelectedVenue(null)}
       />
     </div>
   );

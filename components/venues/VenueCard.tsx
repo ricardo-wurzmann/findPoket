@@ -4,7 +4,10 @@ import { cn } from "@/lib/utils";
 import type { Venue } from "@/types";
 
 interface VenueCardProps {
-  venue: Venue & { events?: { name: string; startsAt: Date; status: string }[] };
+  venue: Venue & {
+    events?: { name: string; startsAt: Date; status: string }[];
+    _count?: { events?: number; interests?: number };
+  };
   onClick?: () => void;
 }
 
@@ -15,7 +18,7 @@ function isOpenNow(openTime: string, closeTime: string): boolean {
   const nowMins = now.getHours() * 60 + now.getMinutes();
   const openMins = oh * 60 + om;
   let closeMins = ch * 60 + cm;
-  if (closeMins < openMins) closeMins += 24 * 60; // overnight
+  if (closeMins < openMins) closeMins += 24 * 60;
   const adjustedNow = nowMins < openMins ? nowMins + 24 * 60 : nowMins;
   return adjustedNow >= openMins && adjustedNow <= closeMins;
 }
@@ -27,6 +30,7 @@ export function VenueCard({ venue, onClick }: VenueCardProps) {
     const today = new Date();
     return d.toDateString() === today.toDateString();
   }) ?? [];
+  const tournamentCount = venue._count?.events ?? 0;
 
   return (
     <article
@@ -35,12 +39,7 @@ export function VenueCard({ venue, onClick }: VenueCardProps) {
     >
       {/* Status */}
       <div className="flex items-center justify-between mb-3">
-        <span
-          className={cn(
-            "tag",
-            open ? "text-green" : "text-text-muted"
-          )}
-        >
+        <span className={cn("tag", open ? "text-green" : "text-text-muted")}>
           {open ? "● Aberto" : `Fecha às ${venue.closeTime}`}
         </span>
         <span className="tag text-text-muted">{venue.tableCount} mesas</span>
@@ -60,6 +59,18 @@ export function VenueCard({ venue, onClick }: VenueCardProps) {
           <div className="tag text-text-muted">Fecha</div>
           <div className="text-[12px] font-medium mt-0.5">{venue.closeTime}</div>
         </div>
+      </div>
+
+      {/* Tournament count */}
+      <div className="mt-3 pt-3 border-t border-border flex items-center justify-between">
+        <span className="tag text-text-muted">
+          {tournamentCount > 0
+            ? `${tournamentCount} torneio${tournamentCount !== 1 ? "s" : ""} agendado${tournamentCount !== 1 ? "s" : ""}`
+            : "Sem torneios"}
+        </span>
+        {tournamentCount > 0 && (
+          <span className="tag text-amber">♦</span>
+        )}
       </div>
 
       {/* Today's events */}

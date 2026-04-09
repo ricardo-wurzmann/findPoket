@@ -21,6 +21,12 @@ export async function GET() {
         orderBy: { startsAt: "asc" },
         take: 5,
       },
+      _count: {
+        select: {
+          events: { where: { status: { in: ["UPCOMING", "LIVE"] }, type: "TOURNAMENT" } },
+          interests: true,
+        },
+      },
     },
     orderBy: { name: "asc" },
   });

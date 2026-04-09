@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useCallback, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import Map, { Marker, NavigationControl, type MapRef } from "react-map-gl";
 import { EventPin } from "./EventPin";
 import type { Event } from "@/types";
@@ -42,7 +43,6 @@ interface EventMapProps {
   venues?: MapVenue[];
   selectedEvent: Event | null;
   onEventSelect: (event: Event) => void;
-  onVenueSelect?: (venueId: string) => void;
   city?: string;
 }
 
@@ -115,7 +115,8 @@ const PIN_PULSE_CSS = `
   }
 `;
 
-export function EventMap({ events, venues = [], selectedEvent, onEventSelect, onVenueSelect, city }: EventMapProps) {
+export function EventMap({ events, venues = [], selectedEvent, onEventSelect, city }: EventMapProps) {
+  const router = useRouter();
   const mapRef = useRef<MapRef>(null);
   const [userPin, setUserPin] = useState<UserPin | null>(null);
   const [locError, setLocError] = useState<string | null>(null);
@@ -212,7 +213,7 @@ export function EventMap({ events, venues = [], selectedEvent, onEventSelect, on
               style={{ position: "relative" }}
               onMouseEnter={() => setHoveredVenueId(venue.id)}
               onMouseLeave={() => setHoveredVenueId(null)}
-              onClick={() => onVenueSelect?.(venue.id)}
+              onClick={() => router.push(`/venues/${venue.id}`)}
             >
               <div
                 style={{

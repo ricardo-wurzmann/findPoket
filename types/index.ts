@@ -114,5 +114,5 @@ export interface NavItem {
 }
 
 export type ViewMode = "map" | "list";
-export type EventFilter = "all" | "TOURNAMENT" | "CASH_GAME" | "HOME_GAME" | "open";
+export type EventFilter = "all" | "venues" | "TOURNAMENT" | "CASH_GAME" | "HOME_GAME";
 export type TimeFilter = "today" | "week" | "month";

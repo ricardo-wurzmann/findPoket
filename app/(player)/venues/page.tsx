@@ -1,16 +1,31 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { VenueCard } from "@/components/venues/VenueCard";
-import { VenueModal } from "@/components/venues/VenueModal";
 import type { Venue, Event } from "@/types";
 
-type VenueWithEvents = Venue & { events?: Event[] };
+type VenueWithMeta = Venue & {
+  events?: Event[];
+  _count?: { events?: number; interests?: number };
+};
+
+function isOpenNow(openTime: string, closeTime: string): boolean {
+  const now = new Date();
+  const [oh, om] = openTime.split(":").map(Number);
+  const [ch, cm] = closeTime.split(":").map(Number);
+  const nowMins = now.getHours() * 60 + now.getMinutes();
+  const openMins = oh * 60 + om;
+  let closeMins = ch * 60 + cm;
+  if (closeMins < openMins) closeMins += 24 * 60;
+  const adjusted = nowMins < openMins ? nowMins + 24 * 60 : nowMins;
+  return adjusted >= openMins && adjusted <= closeMins;
+}
 
 export default function VenuesPage() {
-  const [venues, setVenues] = useState<VenueWithEvents[]>([]);
+  const router = useRouter();
+  const [venues, setVenues] = useState<VenueWithMeta[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedVenue, setSelectedVenue] = useState<VenueWithEvents | null>(null);
 
   useEffect(() => {
     const fetchVenues = async () => {
@@ -29,22 +44,12 @@ export default function VenuesPage() {
     fetchVenues();
   }, []);
 
-  const openCount = venues.filter((v) => {
-    const now = new Date();
-    const [oh, om] = v.openTime.split(":").map(Number);
-    const [ch, cm] = v.closeTime.split(":").map(Number);
-    const nowMins = now.getHours() * 60 + now.getMinutes();
-    const openMins = oh * 60 + om;
-    let closeMins = ch * 60 + cm;
-    if (closeMins < openMins) closeMins += 24 * 60;
-    const adjusted = nowMins < openMins ? nowMins + 24 * 60 : nowMins;
-    return adjusted >= openMins && adjusted <= closeMins;
-  }).length;
+  const openCount = venues.filter((v) => isOpenNow(v.openTime, v.closeTime)).length;
 
   return (
     <div className="flex flex-col h-screen overflow-hidden">
       {/* Header */}
-      <div className="border-b border-border bg-background px-6 py-5">
+      <div className="border-b border-border bg-background px-6 py-5 pl-16 lg:pl-6">
         <h1 className="text-[15px] font-semibold mb-1">Casas de Poker</h1>
         <p className="tag text-text-muted">Clubes e salas de poker cadastrados</p>
       </div>
@@ -78,7 +83,7 @@ export default function VenuesPage() {
               <VenueCard
                 key={venue.id}
                 venue={venue}
-                onClick={() => setSelectedVenue(venue)}
+                onClick={() => router.push(`/venues/${venue.id}`)}
               />
             ))}
           </div>
@@ -91,8 +96,6 @@ export default function VenuesPage() {
           </div>
         )}
       </div>
-
-      <VenueModal venue={selectedVenue} onClose={() => setSelectedVenue(null)} />
     </div>
   );
 }
