@@ -85,7 +85,7 @@ export default function DashboardPage() {
   const kpis = data
     ? [
         {
-          label: "Inscritos Hoje",
+          label: "Interesses Hoje",
           value: data.todayRegistrations,
           prefix: "",
           color: "text-green",
@@ -103,7 +103,7 @@ export default function DashboardPage() {
           color: "text-text",
         },
         {
-          label: "Solicitações",
+          label: "Interesses",
           value: data.pendingRequests,
           prefix: "",
           color: "text-text",

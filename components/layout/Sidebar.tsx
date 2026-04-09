@@ -18,7 +18,7 @@ const playerNav: { icon: string; label: string; href: string; badge?: boolean }[
 const organizerNav: { icon: string; label: string; href: string; badge?: boolean }[] = [
   { icon: "◈", label: "Dashboard", href: "/dashboard" },
   { icon: "◷", label: "Eventos", href: "/events" },
-  { icon: "◉", label: "Inscrições", href: "/requests", badge: true },
+  { icon: "◉", label: "Interesses", href: "/requests", badge: true },
   { icon: "◧", label: "Dealer", href: "/dealer" },
 ];
 

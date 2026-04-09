@@ -20,25 +20,17 @@ export const registerForEvent = authActionClient
       where: { userId_eventId: { userId: ctx.dbUser.id, eventId: parsedInput.eventId } },
     });
 
-    if (existing) throw new Error("Você já está inscrito neste evento");
-
-    const approvedCount = await prisma.registration.count({
-      where: { eventId: parsedInput.eventId, status: "APPROVED" },
-    });
-
-    if (approvedCount >= event.maxPlayers) {
-      throw new Error("Evento lotado");
-    }
+    if (existing) throw new Error("Você já declarou interesse neste evento");
 
     const registration = await prisma.registration.create({
       data: {
         userId: ctx.dbUser.id,
         eventId: parsedInput.eventId,
-        status: event.isPrivate ? "PENDING" : "APPROVED",
+        status: "PENDING",
       },
     });
 
-    return { registration };
+    return { registration, message: "Interesse declarado com sucesso" };
   });
 
 export const approveRegistration = organizerActionClient

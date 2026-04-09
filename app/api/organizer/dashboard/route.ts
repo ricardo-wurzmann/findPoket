@@ -26,7 +26,7 @@ export async function GET() {
     prisma.registration.count({
       where: {
         event: { organizerId: dbUser.id },
-        status: "APPROVED",
+        status: { in: ["PENDING", "APPROVED"] },
         createdAt: { gte: startOfDay(today), lte: endOfDay(today) },
       },
     }),
@@ -34,7 +34,7 @@ export async function GET() {
       where: { organizerId: dbUser.id },
       include: {
         venue: { select: { name: true, district: true } },
-        _count: { select: { registrations: { where: { status: "APPROVED" } } } },
+        _count: { select: { registrations: { where: { status: { in: ["PENDING", "APPROVED"] } } } } },
       },
       orderBy: { createdAt: "desc" },
     }),

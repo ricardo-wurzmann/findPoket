@@ -19,7 +19,6 @@ function getDefaultStartsAt(): string {
 const EVENT_TYPES = [
   { id: "TOURNAMENT", label: "Torneio" },
   { id: "CASH_GAME", label: "Cash Game" },
-  { id: "SIT_AND_GO", label: "Sit & Go" },
   { id: "HOME_GAME", label: "Home Game" },
 ] as const;
 
@@ -44,6 +43,7 @@ export function CreateEventForm({ venues }: Props) {
   const [publishToCalendar, setPublishToCalendar] = useState(true);
 
   const defaultStartsAt = useMemo(() => getDefaultStartsAt(), []);
+  const isCashGame = eventType === "CASH_GAME";
 
   const {
     register,
@@ -65,6 +65,12 @@ export function CreateEventForm({ venues }: Props) {
   const handleTypeChange = (type: string) => {
     setEventType(type);
     setValue("type", type as CreateEventInput["type"]);
+    if (type === "CASH_GAME") {
+      setValue("buyIn", 0);
+      setValue("startingStack", undefined);
+      setValue("levelDuration", undefined);
+      setValue("rebuyPolicy", undefined);
+    }
   };
 
   const handleVenueChange = (venueId: string) => {
@@ -82,7 +88,14 @@ export function CreateEventForm({ venues }: Props) {
   const onSubmit = async (data: CreateEventInput) => {
     setServerError(null);
     try {
-      const result = await createEvent({ ...data, isPrivate, isMajor });
+      const payload: CreateEventInput = { ...data, isPrivate, isMajor };
+      if (isCashGame) {
+        payload.buyIn = 0;
+        payload.startingStack = undefined;
+        payload.levelDuration = undefined;
+        payload.rebuyPolicy = undefined;
+      }
+      const result = await createEvent(payload);
       if (result?.serverError) {
         setServerError(result.serverError);
         return;
@@ -117,7 +130,7 @@ export function CreateEventForm({ venues }: Props) {
           {/* Type */}
           <div>
             <label className="tag text-text-muted block mb-2">Tipo de Evento</label>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <div className="grid grid-cols-3 gap-2">
               {EVENT_TYPES.map((t) => (
                 <button
                   key={t.id}
@@ -168,24 +181,25 @@ export function CreateEventForm({ venues }: Props) {
                 className={inputCls}
               />
               <p className="text-[10px] text-text-light mt-1">Deixe em branco se não souber</p>
-              {errors.endsAt && <p className="text-[11px] text-red mt-1">{errors.endsAt.message}</p>}
             </div>
           </div>
 
-          {/* Buy-in, Max players, GTD */}
-          <div className="grid grid-cols-3 gap-3">
-            <div>
-              <label className="tag text-text-muted block mb-2">Buy-in (R$) *</label>
-              <input
-                {...register("buyIn", { valueAsNumber: true })}
-                type="number"
-                min={0}
-                step={10}
-                placeholder="550"
-                className={inputCls}
-              />
-              {errors.buyIn && <p className="text-[11px] text-red mt-1">{errors.buyIn.message}</p>}
-            </div>
+          {/* Max players + GTD (always shown) */}
+          <div className={cn("grid gap-3", isCashGame ? "grid-cols-1" : "grid-cols-3")}>
+            {!isCashGame && (
+              <div>
+                <label className="tag text-text-muted block mb-2">Buy-in (R$) *</label>
+                <input
+                  {...register("buyIn", { valueAsNumber: true })}
+                  type="number"
+                  min={0}
+                  step={10}
+                  placeholder="550"
+                  className={inputCls}
+                />
+                {errors.buyIn && <p className="text-[11px] text-red mt-1">{errors.buyIn.message}</p>}
+              </div>
+            )}
             <div>
               <label className="tag text-text-muted block mb-2">Máx. Jogadores *</label>
               <input
@@ -198,56 +212,74 @@ export function CreateEventForm({ venues }: Props) {
               />
               {errors.maxPlayers && <p className="text-[11px] text-red mt-1">{errors.maxPlayers.message}</p>}
             </div>
-            <div>
-              <label className="tag text-text-muted block mb-2">GTD (R$)</label>
-              <input
-                {...register("gtd", { valueAsNumber: true, setValueAs: (v) => v === "" ? undefined : Number(v) })}
-                type="number"
-                min={0}
-                step={1000}
-                placeholder="50000"
-                className={inputCls}
-              />
-            </div>
+            {!isCashGame && (
+              <div>
+                <label className="tag text-text-muted block mb-2">GTD (R$)</label>
+                <input
+                  {...register("gtd", { valueAsNumber: true, setValueAs: (v) => v === "" ? undefined : Number(v) })}
+                  type="number"
+                  min={0}
+                  step={1000}
+                  placeholder="50000"
+                  className={inputCls}
+                />
+              </div>
+            )}
           </div>
 
-          {/* Structure */}
-          <div className="grid grid-cols-2 gap-3">
+          {/* Cash Game: Blinds field */}
+          {isCashGame && (
             <div>
-              <label className="tag text-text-muted block mb-2">Stack Inicial</label>
+              <label className="tag text-text-muted block mb-2">Blinds</label>
               <input
-                {...register("startingStack")}
+                {...register("blinds")}
                 type="text"
-                placeholder="30.000 fichas"
+                placeholder="Ex: 1/2, 2/5, 5/10"
                 className={inputCls}
               />
             </div>
-            <div>
-              <label className="tag text-text-muted block mb-2">Duração dos Níveis</label>
-              <input
-                {...register("levelDuration")}
-                type="text"
-                placeholder="30 minutos"
-                className={inputCls}
-              />
-            </div>
-          </div>
+          )}
 
-          <div>
-            <label className="tag text-text-muted block mb-2">Política de Re-entry</label>
-            <input
-              {...register("rebuyPolicy")}
-              type="text"
-              placeholder="Re-entry até o nível 8"
-              className={inputCls}
-            />
-          </div>
+          {/* Tournament/HomeGame: Structure fields */}
+          {!isCashGame && (
+            <>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="tag text-text-muted block mb-2">Stack Inicial</label>
+                  <input
+                    {...register("startingStack")}
+                    type="text"
+                    placeholder="30.000 fichas"
+                    className={inputCls}
+                  />
+                </div>
+                <div>
+                  <label className="tag text-text-muted block mb-2">Duração dos Níveis</label>
+                  <input
+                    {...register("levelDuration")}
+                    type="text"
+                    placeholder="30 minutos"
+                    className={inputCls}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="tag text-text-muted block mb-2">Política de Re-entry</label>
+                <input
+                  {...register("rebuyPolicy")}
+                  type="text"
+                  placeholder="Re-entry até o nível 8"
+                  className={inputCls}
+                />
+              </div>
+            </>
+          )}
 
           {/* Location section */}
           <div className="border border-border rounded-sm p-4 space-y-4">
             <div className="tag text-text-muted">Localização</div>
 
-            {/* Venue selector — only if organizer has venues */}
             {venues.length > 0 && (
               <div>
                 <label className="tag text-text-muted block mb-2">Casa de poker</label>
@@ -268,7 +300,6 @@ export function CreateEventForm({ venues }: Props) {
               </div>
             )}
 
-            {/* Location label */}
             <div>
               <label className="tag text-text-muted block mb-2">Bairro / Local</label>
               <input
@@ -282,7 +313,6 @@ export function CreateEventForm({ venues }: Props) {
               </p>
             </div>
 
-            {/* Manual lat/lng */}
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="tag text-text-muted block mb-2">Latitude (opcional)</label>

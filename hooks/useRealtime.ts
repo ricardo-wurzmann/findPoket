@@ -24,7 +24,7 @@ export function useRealtime(eventIds: string[]) {
             .from("Registration")
             .select("*", { count: "exact", head: true })
             .eq("eventId", id)
-            .eq("status", "APPROVED");
+            .in("status", ["PENDING", "APPROVED"]);
           initial[id] = count ?? 0;
         })
       );
@@ -52,7 +52,7 @@ export function useRealtime(eventIds: string[]) {
               .from("Registration")
               .select("*", { count: "exact", head: true })
               .eq("eventId", affectedEventId)
-              .eq("status", "APPROVED");
+              .in("status", ["PENDING", "APPROVED"]);
 
             setCounts((prev) => ({
               ...prev,

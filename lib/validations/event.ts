@@ -24,9 +24,9 @@ const optionalDatetimeLocalSchema = z.preprocess(
 
 export const createEventSchema = z.object({
   name: z.string().min(3, "Nome deve ter ao menos 3 caracteres").max(120),
-  type: z.enum(["TOURNAMENT", "CASH_GAME", "HOME_GAME", "SIT_AND_GO"]),
+  type: z.enum(["TOURNAMENT", "CASH_GAME", "HOME_GAME"]),
   description: z.string().max(1000).optional(),
-  buyIn: z.number().min(0, "Buy-in deve ser positivo"),
+  buyIn: z.number().min(0).optional(),
   maxPlayers: z.number().int().min(2).max(1000),
   startsAt: datetimeLocalSchema,
   endsAt: optionalDatetimeLocalSchema,
@@ -36,6 +36,7 @@ export const createEventSchema = z.object({
   startingStack: z.string().max(50).optional(),
   levelDuration: z.string().max(50).optional(),
   rebuyPolicy: z.string().max(200).optional(),
+  blinds: z.string().max(50).optional(),
   venueId: z.string().uuid().optional(),
   lat: z.number().optional(),
   lng: z.number().optional(),

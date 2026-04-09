@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { prisma } from "@/lib/prisma";
 import { formatCurrency, getInitials } from "@/lib/utils";
-import { format } from "date-fns";
+import { format, differenceInYears } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
 export default async function ProfilePage() {
@@ -75,6 +75,45 @@ export default async function ProfilePage() {
               <p className="text-[12px] text-[#9B9690] leading-relaxed border-t border-sidebar-border pt-4">
                 {dbUser.bio}
               </p>
+            )}
+
+            {/* Additional info */}
+            {(dbUser.birthDate || dbUser.phone || dbUser.profession || dbUser.hendonMob) && (
+              <div className="border-t border-sidebar-border pt-4 space-y-2">
+                {dbUser.birthDate && (
+                  <div className="flex items-center justify-between">
+                    <span className="tag text-[#6B6660]">Idade</span>
+                    <span className="text-[12px] text-white">
+                      {differenceInYears(new Date(), dbUser.birthDate)} anos
+                    </span>
+                  </div>
+                )}
+                {dbUser.phone && (
+                  <div className="flex items-center justify-between">
+                    <span className="tag text-[#6B6660]">Telefone</span>
+                    <span className="text-[12px] text-white">{dbUser.phone}</span>
+                  </div>
+                )}
+                {dbUser.profession && (
+                  <div className="flex items-center justify-between">
+                    <span className="tag text-[#6B6660]">Profissão</span>
+                    <span className="text-[12px] text-white">{dbUser.profession}</span>
+                  </div>
+                )}
+                {dbUser.hendonMob && (
+                  <div className="flex items-center justify-between">
+                    <span className="tag text-[#6B6660]">Hendon Mob</span>
+                    <a
+                      href={`https://pokerdb.thehendonmob.com/player.cfm?USP=${dbUser.hendonMob}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[12px] text-amber hover:underline"
+                    >
+                      @{dbUser.hendonMob}
+                    </a>
+                  </div>
+                )}
+              </div>
             )}
 
             {/* Stats */}

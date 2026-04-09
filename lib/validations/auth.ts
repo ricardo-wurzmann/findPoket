@@ -20,6 +20,14 @@ export const signUpSchema = z.object({
     .optional(),
   role: z.enum(["PLAYER", "ORGANIZER"]).default("PLAYER"),
   city: z.string().optional(),
+  birthDate: z.string().optional(),
+  phone: z.string().optional(),
+  profession: z.string().optional(),
+  hendonMob: z
+    .string()
+    .regex(/^[a-zA-Z0-9_\-.]*$/, "Username inválido — só letras, números, _ - .")
+    .optional()
+    .or(z.literal("")),
 });
 
 export type SignInInput = z.infer<typeof signInSchema>;

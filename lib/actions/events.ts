@@ -9,7 +9,7 @@ export const getEvents = authActionClient
   .schema(
     z.object({
       city: z.string().optional(),
-      type: z.enum(["TOURNAMENT", "CASH_GAME", "HOME_GAME", "SIT_AND_GO"]).optional(),
+      type: z.enum(["TOURNAMENT", "CASH_GAME", "HOME_GAME"]).optional(),
       status: z.enum(["UPCOMING", "LIVE", "FINISHED", "CANCELLED"]).optional(),
       onlyOpen: z.boolean().optional(),
     })

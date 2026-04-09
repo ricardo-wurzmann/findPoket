@@ -223,9 +223,9 @@ async function main() {
   const event5 = await prisma.event.create({
     data: {
       id: "event-005",
-      name: "Sit & Go Turbo NL100",
-      type: EventType.SIT_AND_GO,
-      description: "Sit & Go turbo para 9 jogadores. Estrutura acelerada, 10 minutos por nível.",
+      name: "Turbo NL100 — Mesa Rápida",
+      type: EventType.TOURNAMENT,
+      description: "Torneio turbo para 9 jogadores. Estrutura acelerada, 10 minutos por nível.",
       buyIn: 100,
       maxPlayers: 9,
       startsAt: inTwoDays,

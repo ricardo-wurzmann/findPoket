@@ -61,7 +61,6 @@ export function eventTypeLabel(type: string): string {
     TOURNAMENT: "Torneio",
     CASH_GAME: "Cash Game",
     HOME_GAME: "Home Game",
-    SIT_AND_GO: "Sit & Go",
   };
   return labels[type] ?? type;
 }

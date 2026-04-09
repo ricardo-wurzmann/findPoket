@@ -30,8 +30,6 @@ export default async function OrganizerLayout({
     });
   }
 
-  console.log("[OrganizerLayout] supabaseId:", user.id, "dbUser:", JSON.stringify(dbUser));
-
   if (!dbUser || dbUser.role !== "ORGANIZER") {
     redirect("/feed");
   }

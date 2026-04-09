@@ -18,6 +18,10 @@ model User {
   role          Role          @default(PLAYER)
   bio           String?
   avatarUrl     String?
+  birthDate     DateTime?
+  phone         String?
+  profession    String?
+  hendonMob     String?
   venues        Venue[]
   events        Event[]
   registrations Registration[]
@@ -77,6 +81,7 @@ model Event {
   startingStack String?
   levelDuration String?
   rebuyPolicy   String?
+  blinds        String?
   venueId       String?
   venue         Venue?        @relation(fields: [venueId], references: [id])
   organizerId   String
@@ -94,7 +99,6 @@ enum EventType {
   TOURNAMENT
   CASH_GAME
   HOME_GAME
-  SIT_AND_GO
 }
 
 enum EventStatus {

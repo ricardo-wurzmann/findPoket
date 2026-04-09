@@ -1,6 +1,6 @@
 export type Role = "PLAYER" | "ORGANIZER";
 
-export type EventType = "TOURNAMENT" | "CASH_GAME" | "HOME_GAME" | "SIT_AND_GO";
+export type EventType = "TOURNAMENT" | "CASH_GAME" | "HOME_GAME";
 
 export type EventStatus = "UPCOMING" | "LIVE" | "FINISHED" | "CANCELLED";
 
@@ -63,6 +63,7 @@ export interface Event {
   startingStack: string | null;
   levelDuration: string | null;
   rebuyPolicy: string | null;
+  blinds: string | null;
   venueId: string | null;
   venue: Venue | null;
   organizerId: string;

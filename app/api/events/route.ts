@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
             ],
           }
         : {}),
-      ...(type ? { type: type as "TOURNAMENT" | "CASH_GAME" | "HOME_GAME" | "SIT_AND_GO" } : {}),
+      ...(type ? { type: type as "TOURNAMENT" | "CASH_GAME" | "HOME_GAME" } : {}),
       ...(onlyOpen
         ? { registrations: { none: { status: "APPROVED" } } }
         : {}),
@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
     include: {
       venue: true,
       organizer: { select: { id: true, name: true, handle: true } },
-      _count: { select: { registrations: { where: { status: "APPROVED" } } } },
+      _count: { select: { registrations: { where: { status: { in: ["PENDING", "APPROVED"] } } } } },
     },
     orderBy: { startsAt: "asc" },
   });

@@ -45,7 +45,6 @@ export default function RequestsPage() {
     setProcessingId(id);
     try {
       await approveRegistration({ id });
-      // Optimistic removal
       setRegistrations((prev) => prev.filter((r) => r.id !== id));
     } finally {
       setProcessingId(null);
@@ -65,9 +64,9 @@ export default function RequestsPage() {
   return (
     <div className="flex flex-col h-screen overflow-hidden">
       <div className="border-b border-border bg-background px-6 py-5">
-        <h1 className="text-[15px] font-semibold">Inscrições Pendentes</h1>
+        <h1 className="text-[15px] font-semibold">Interesses Declarados</h1>
         <p className="tag text-text-muted mt-0.5">
-          {loading ? "Carregando..." : `${registrations.length} solicitações aguardando`}
+          {loading ? "Carregando..." : `${registrations.length} interesses aguardando confirmação`}
         </p>
       </div>
 
@@ -81,7 +80,7 @@ export default function RequestsPage() {
         ) : registrations.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-40 text-text-muted border border-border rounded-sm">
             <span className="text-3xl mb-2 opacity-20">◉</span>
-            <p className="tag">Nenhuma inscrição pendente</p>
+            <p className="tag">Nenhum interesse pendente</p>
           </div>
         ) : (
           <div className="divide-y divide-border border border-border rounded-sm">
@@ -120,7 +119,7 @@ export default function RequestsPage() {
                       disabled={isProcessing}
                       className="tag text-green border border-green/30 hover:border-green hover:bg-green/5 px-3 py-1.5 rounded-sm transition-all duration-150 disabled:opacity-50"
                     >
-                      {isProcessing ? "..." : "Aprovar"}
+                      {isProcessing ? "..." : "Confirmar"}
                     </button>
                     <button
                       onClick={() => handleDeny(reg.id)}

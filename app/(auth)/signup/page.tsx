@@ -33,20 +33,16 @@ export default function SignupPage() {
   };
 
   const onSubmit = async (data: SignUpInput) => {
-    console.log("[signup form] submitting with role:", role);
-    console.log("[signup form] form data:", JSON.stringify(data));
     setLoading(true);
     setServerError(null);
 
     try {
       const result = await signUp({ ...data, role });
-      // Server redirects on success; only surface genuine errors
       const errorMsg = result?.serverError;
       if (errorMsg && !isRedirectError(errorMsg)) {
         setServerError(errorMsg);
         setLoading(false);
       }
-      // If redirect happened the browser navigates — keep spinner visible
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Erro ao criar conta";
       if (!isRedirectError(msg)) {
@@ -55,6 +51,8 @@ export default function SignupPage() {
       }
     }
   };
+
+  const inputCls = "w-full bg-transparent border border-sidebar-border text-white text-[13px] px-3 py-2.5 placeholder:text-[#3A3835] focus:border-[#6B6660] transition-colors rounded-sm";
 
   return (
     <div className="min-h-screen bg-sidebar flex items-center justify-center p-4 relative overflow-hidden">
@@ -96,12 +94,71 @@ export default function SignupPage() {
                 {...register("name")}
                 type="text"
                 placeholder="Seu nome"
-                className="w-full bg-transparent border border-sidebar-border text-white text-[13px] px-3 py-2.5 placeholder:text-[#3A3835] focus:border-[#6B6660] transition-colors rounded-sm"
+                className={inputCls}
               />
               {errors.name && (
                 <p className="text-[11px] text-red mt-1">{errors.name.message}</p>
               )}
             </div>
+
+            {/* Player-only fields */}
+            {role === "PLAYER" && (
+              <>
+                <div>
+                  <label className="tag text-[#6B6660] block mb-1.5">Data de nascimento</label>
+                  <input
+                    {...register("birthDate")}
+                    type="date"
+                    className={inputCls}
+                  />
+                  {errors.birthDate && (
+                    <p className="text-[11px] text-red mt-1">{errors.birthDate.message}</p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="tag text-[#6B6660] block mb-1.5">
+                    Telefone <span className="opacity-50">(opcional)</span>
+                  </label>
+                  <input
+                    {...register("phone")}
+                    type="tel"
+                    placeholder="11 9 0000-0000"
+                    className={inputCls}
+                  />
+                </div>
+
+                <div>
+                  <label className="tag text-[#6B6660] block mb-1.5">
+                    Profissão <span className="opacity-50">(opcional)</span>
+                  </label>
+                  <input
+                    {...register("profession")}
+                    type="text"
+                    placeholder="Ex: Engenheiro"
+                    className={inputCls}
+                  />
+                </div>
+
+                <div>
+                  <label className="tag text-[#6B6660] block mb-1.5">
+                    Hendon Mob <span className="opacity-50">(opcional)</span>
+                  </label>
+                  <input
+                    {...register("hendonMob")}
+                    type="text"
+                    placeholder="seu-username"
+                    className={inputCls}
+                  />
+                  <p className="text-[10px] text-[#6B6660] mt-1">
+                    Username do seu perfil em thehendonmob.com
+                  </p>
+                  {errors.hendonMob && (
+                    <p className="text-[11px] text-red mt-1">{errors.hendonMob.message}</p>
+                  )}
+                </div>
+              </>
+            )}
 
             <div>
               <label className="tag text-[#6B6660] block mb-1.5">Handle</label>
@@ -128,7 +185,7 @@ export default function SignupPage() {
                 {...register("email")}
                 type="email"
                 placeholder="seu@email.com"
-                className="w-full bg-transparent border border-sidebar-border text-white text-[13px] px-3 py-2.5 placeholder:text-[#3A3835] focus:border-[#6B6660] transition-colors rounded-sm"
+                className={inputCls}
               />
               {errors.email && (
                 <p className="text-[11px] text-red mt-1">{errors.email.message}</p>
@@ -141,7 +198,7 @@ export default function SignupPage() {
                 {...register("password")}
                 type="password"
                 placeholder="Mín. 8 caracteres"
-                className="w-full bg-transparent border border-sidebar-border text-white text-[13px] px-3 py-2.5 placeholder:text-[#3A3835] focus:border-[#6B6660] transition-colors rounded-sm"
+                className={inputCls}
               />
               {errors.password && (
                 <p className="text-[11px] text-red mt-1">{errors.password.message}</p>
@@ -154,7 +211,7 @@ export default function SignupPage() {
                 {...register("city")}
                 type="text"
                 placeholder="São Paulo"
-                className="w-full bg-transparent border border-sidebar-border text-white text-[13px] px-3 py-2.5 placeholder:text-[#3A3835] focus:border-[#6B6660] transition-colors rounded-sm"
+                className={inputCls}
               />
             </div>
 

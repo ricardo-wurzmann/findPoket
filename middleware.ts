@@ -10,8 +10,6 @@ export async function middleware(request: NextRequest) {
   const { supabaseResponse, user } = await updateSession(request);
   const pathname = request.nextUrl.pathname;
 
-  console.log("[middleware] pathname:", pathname, "user:", !!user);
-
   const isAuthPage = pathname.startsWith("/login") || pathname.startsWith("/signup");
   const isPlayerRoute =
     pathname.startsWith("/feed") ||

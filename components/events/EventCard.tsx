@@ -46,10 +46,17 @@ export function EventCard({ event, onClick, registeredCount, style }: EventCardP
           )}
         </div>
         <div className="text-right shrink-0">
-          <div className="font-cormorant italic text-xl font-light text-text leading-none">
-            {formatCurrency(event.buyIn)}
-          </div>
-          {event.gtd && (
+          {event.type !== "CASH_GAME" && (
+            <div className="font-cormorant italic text-xl font-light text-text leading-none">
+              {formatCurrency(event.buyIn)}
+            </div>
+          )}
+          {event.type === "CASH_GAME" && event.blinds && (
+            <div className="tag text-text-muted leading-none">
+              {event.blinds}
+            </div>
+          )}
+          {event.gtd && event.type !== "CASH_GAME" && (
             <div className="tag text-amber mt-0.5">
               GTD {formatCurrency(event.gtd)}
             </div>
@@ -72,7 +79,7 @@ export function EventCard({ event, onClick, registeredCount, style }: EventCardP
       {/* Progress bar */}
       <div className="mb-2">
         <div className="flex justify-between mb-1">
-          <span className="tag text-text-muted">{count} inscritos</span>
+          <span className="tag text-text-muted">{count} interessados</span>
           <span className="tag text-text-muted">{event.maxPlayers} vagas</span>
         </div>
         <div className="h-px bg-border relative overflow-hidden">

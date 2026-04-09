@@ -12,7 +12,6 @@ import Link from "next/link";
 const EVENT_TYPES = [
   { id: "HOME_GAME", label: "Home Game" },
   { id: "TOURNAMENT", label: "Torneio" },
-  { id: "SIT_AND_GO", label: "Sit & Go" },
   { id: "CASH_GAME", label: "Cash Game" },
 ] as const;
 
@@ -38,9 +37,16 @@ export default function AnnouncePage() {
     },
   });
 
+  const isCashGame = eventType === "CASH_GAME";
+
   const handleTypeChange = (type: string) => {
     setEventType(type);
     setValue("type", type as CreateEventInput["type"]);
+    if (type === "CASH_GAME") {
+      setValue("buyIn", 0);
+      setValue("startingStack", undefined);
+      setValue("levelDuration", undefined);
+    }
   };
 
   const handlePrivateToggle = () => {
@@ -52,7 +58,13 @@ export default function AnnouncePage() {
   const onSubmit = async (data: CreateEventInput) => {
     setServerError(null);
     try {
-      const result = await createEvent(data);
+      const payload: CreateEventInput = { ...data };
+      if (isCashGame) {
+        payload.buyIn = 0;
+        payload.startingStack = undefined;
+        payload.levelDuration = undefined;
+      }
+      const result = await createEvent(payload);
       if (result?.serverError) {
         setServerError(result.serverError);
         return;
@@ -120,19 +132,21 @@ export default function AnnouncePage() {
           </div>
 
           {/* Buy-in & Max players */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="tag text-text-muted block mb-2">Buy-in (R$)</label>
-              <input
-                {...register("buyIn", { valueAsNumber: true })}
-                type="number"
-                min={0}
-                step={10}
-                placeholder="200"
-                className="w-full border border-border bg-background text-text text-[13px] px-3 py-2.5 rounded-sm focus:border-[#B8B4AC] transition-colors"
-              />
-              {errors.buyIn && <p className="text-[11px] text-red mt-1">{errors.buyIn.message}</p>}
-            </div>
+          <div className={cn("grid gap-3", isCashGame ? "grid-cols-1" : "grid-cols-2")}>
+            {!isCashGame && (
+              <div>
+                <label className="tag text-text-muted block mb-2">Buy-in (R$)</label>
+                <input
+                  {...register("buyIn", { valueAsNumber: true })}
+                  type="number"
+                  min={0}
+                  step={10}
+                  placeholder="200"
+                  className="w-full border border-border bg-background text-text text-[13px] px-3 py-2.5 rounded-sm focus:border-[#B8B4AC] transition-colors"
+                />
+                {errors.buyIn && <p className="text-[11px] text-red mt-1">{errors.buyIn.message}</p>}
+              </div>
+            )}
             <div>
               <label className="tag text-text-muted block mb-2">Máx. Jogadores</label>
               <input
@@ -147,6 +161,19 @@ export default function AnnouncePage() {
             </div>
           </div>
 
+          {/* Cash Game: Blinds */}
+          {isCashGame && (
+            <div>
+              <label className="tag text-text-muted block mb-2">Blinds</label>
+              <input
+                {...register("blinds")}
+                type="text"
+                placeholder="Ex: 1/2, 2/5, 5/10"
+                className="w-full border border-border bg-background text-text text-[13px] px-3 py-2.5 rounded-sm focus:border-[#B8B4AC] transition-colors placeholder:text-text-light"
+              />
+            </div>
+          )}
+
           {/* Location */}
           <div>
             <label className="tag text-text-muted block mb-2">Local</label>
@@ -158,26 +185,30 @@ export default function AnnouncePage() {
             />
           </div>
 
-          {/* Structure */}
-          <div>
-            <label className="tag text-text-muted block mb-2">Stack Inicial <span className="opacity-50">(opcional)</span></label>
-            <input
-              {...register("startingStack")}
-              type="text"
-              placeholder="20.000 fichas"
-              className="w-full border border-border bg-background text-text text-[13px] px-3 py-2.5 rounded-sm focus:border-[#B8B4AC] transition-colors placeholder:text-text-light"
-            />
-          </div>
+          {/* Structure — only for non-cash-game */}
+          {!isCashGame && (
+            <>
+              <div>
+                <label className="tag text-text-muted block mb-2">Stack Inicial <span className="opacity-50">(opcional)</span></label>
+                <input
+                  {...register("startingStack")}
+                  type="text"
+                  placeholder="20.000 fichas"
+                  className="w-full border border-border bg-background text-text text-[13px] px-3 py-2.5 rounded-sm focus:border-[#B8B4AC] transition-colors placeholder:text-text-light"
+                />
+              </div>
 
-          <div>
-            <label className="tag text-text-muted block mb-2">Duração dos Níveis <span className="opacity-50">(opcional)</span></label>
-            <input
-              {...register("levelDuration")}
-              type="text"
-              placeholder="15 minutos"
-              className="w-full border border-border bg-background text-text text-[13px] px-3 py-2.5 rounded-sm focus:border-[#B8B4AC] transition-colors placeholder:text-text-light"
-            />
-          </div>
+              <div>
+                <label className="tag text-text-muted block mb-2">Duração dos Níveis <span className="opacity-50">(opcional)</span></label>
+                <input
+                  {...register("levelDuration")}
+                  type="text"
+                  placeholder="15 minutos"
+                  className="w-full border border-border bg-background text-text text-[13px] px-3 py-2.5 rounded-sm focus:border-[#B8B4AC] transition-colors placeholder:text-text-light"
+                />
+              </div>
+            </>
+          )}
 
           {/* Description */}
           <div>

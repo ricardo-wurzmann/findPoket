@@ -57,7 +57,7 @@ function getPinStyle(event: Event): {
       borderStyle: "solid",
     };
   }
-  // TOURNAMENT / SIT_AND_GO upcoming
+  // TOURNAMENT upcoming
   return {
     bg: "#D97706",
     border: "#ffffff",

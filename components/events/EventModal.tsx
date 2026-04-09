@@ -50,7 +50,7 @@ export function EventModal({ event, registeredCount, onClose }: EventModalProps)
         setRegistered(true);
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Erro ao inscrever");
+      setError(e instanceof Error ? e.message : "Erro ao registrar interesse");
     } finally {
       setLoading(false);
     }
@@ -62,14 +62,11 @@ export function EventModal({ event, registeredCount, onClose }: EventModalProps)
   const fillPct = Math.min(100, (count / event.maxPlayers) * 100);
   const spotsLeft = event.maxPlayers - count;
   const isLive = event.status === "LIVE";
+  const isCashGame = event.type === "CASH_GAME";
 
   const ctaLabel = registered
-    ? "Inscrito ✓"
-    : event.isPrivate
-    ? "Solicitar Acesso"
-    : event.type === "CASH_GAME"
-    ? "Reservar Assento"
-    : "Inscrever-se";
+    ? "Interesse declarado ✓"
+    : "Declarar interesse";
 
   const modal = (
     <div
@@ -115,15 +112,17 @@ export function EventModal({ event, registeredCount, onClose }: EventModalProps)
 
         {/* Content */}
         <div className="px-6 py-5 space-y-5">
-          {/* Info grid */}
+          {/* Info grid — top row */}
           <div className="grid grid-cols-3 gap-4">
-            <div>
-              <div className="tag text-text-muted mb-1">Buy-in</div>
-              <div className="font-cormorant italic text-2xl font-light text-green leading-none">
-                {formatCurrency(event.buyIn)}
+            {!isCashGame && (
+              <div>
+                <div className="tag text-text-muted mb-1">Buy-in</div>
+                <div className="font-cormorant italic text-2xl font-light text-green leading-none">
+                  {formatCurrency(event.buyIn)}
+                </div>
               </div>
-            </div>
-            <div>
+            )}
+            <div className={isCashGame ? "col-span-2" : ""}>
               <div className="tag text-text-muted mb-1">Horário</div>
               <div className="font-cormorant italic text-2xl font-light text-text leading-none">
                 {formatTime(event.startsAt)}
@@ -142,7 +141,8 @@ export function EventModal({ event, registeredCount, onClose }: EventModalProps)
             </div>
           </div>
 
-          {event.gtd && (
+          {/* GTD banner */}
+          {!isCashGame && event.gtd && (
             <div className="border border-amber/30 bg-amber/5 px-3 py-2 flex items-center justify-between rounded-sm">
               <span className="tag text-amber">Garantido</span>
               <span className="font-cormorant italic text-xl font-light text-amber">
@@ -154,7 +154,7 @@ export function EventModal({ event, registeredCount, onClose }: EventModalProps)
           {/* Progress */}
           <div>
             <div className="flex justify-between mb-1.5">
-              <span className="tag text-text-muted">{count} inscritos</span>
+              <span className="tag text-text-muted">{count} interessados</span>
               <span className="tag text-text-muted">{event.maxPlayers} vagas</span>
             </div>
             <div className="h-px bg-border relative overflow-hidden">
@@ -165,8 +165,8 @@ export function EventModal({ event, registeredCount, onClose }: EventModalProps)
             </div>
           </div>
 
-          {/* Structure info */}
-          {(event.startingStack || event.levelDuration || event.rebuyPolicy) && (
+          {/* Extra info — tournament/home game */}
+          {!isCashGame && (event.startingStack || event.levelDuration || event.rebuyPolicy || event.description) && (
             <div className="border border-border p-3 space-y-2 rounded-sm">
               <div className="tag text-text-muted mb-2">Estrutura</div>
               {event.startingStack && (
@@ -177,14 +177,32 @@ export function EventModal({ event, registeredCount, onClose }: EventModalProps)
               )}
               {event.levelDuration && (
                 <div className="flex justify-between">
-                  <span className="tag text-text-muted">Nível</span>
+                  <span className="tag text-text-muted">Duração do nível</span>
                   <span className="text-[12px] font-medium">{event.levelDuration}</span>
                 </div>
               )}
               {event.rebuyPolicy && (
                 <div>
-                  <span className="tag text-text-muted block mb-1">Re-entry</span>
+                  <span className="tag text-text-muted block mb-1">Recompra</span>
                   <span className="text-[12px] text-text-muted">{event.rebuyPolicy}</span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Extra info — cash game */}
+          {isCashGame && (event.blinds || event.description) && (
+            <div className="border border-border p-3 space-y-2 rounded-sm">
+              {event.blinds && (
+                <div className="flex justify-between">
+                  <span className="tag text-text-muted">Blinds</span>
+                  <span className="text-[12px] font-medium">{event.blinds}</span>
+                </div>
+              )}
+              {event.maxPlayers && (
+                <div className="flex justify-between">
+                  <span className="tag text-text-muted">Vagas na mesa</span>
+                  <span className="text-[12px] font-medium">{event.maxPlayers}</span>
                 </div>
               )}
             </div>

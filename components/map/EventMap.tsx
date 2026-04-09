@@ -23,6 +23,15 @@ export const CITY_COORDS: Record<string, CityCoord> = {
   "Balneário Camboriú": { lng: -48.6358, lat: -26.9906, zoom: 13 },
 };
 
+export interface MapVenue {
+  id: string;
+  name: string;
+  lat: number;
+  lng: number;
+  district: string;
+  city: string;
+}
+
 interface UserPin {
   lng: number;
   lat: number;
@@ -30,8 +39,10 @@ interface UserPin {
 
 interface EventMapProps {
   events: Event[];
+  venues?: MapVenue[];
   selectedEvent: Event | null;
   onEventSelect: (event: Event) => void;
+  onVenueSelect?: (venueId: string) => void;
   city?: string;
 }
 
@@ -104,12 +115,12 @@ const PIN_PULSE_CSS = `
   }
 `;
 
-export function EventMap({ events, selectedEvent, onEventSelect, city }: EventMapProps) {
+export function EventMap({ events, venues = [], selectedEvent, onEventSelect, onVenueSelect, city }: EventMapProps) {
   const mapRef = useRef<MapRef>(null);
   const [userPin, setUserPin] = useState<UserPin | null>(null);
   const [locError, setLocError] = useState<string | null>(null);
+  const [hoveredVenueId, setHoveredVenueId] = useState<string | null>(null);
 
-  // Fly to city when city prop changes
   useEffect(() => {
     if (!city || !mapRef.current) return;
     const coords = CITY_COORDS[city];
@@ -142,7 +153,6 @@ export function EventMap({ events, selectedEvent, onEventSelect, city }: EventMa
     );
   }, [events]);
 
-  // Only fit bounds on initial events load, not on every city change
   const hasFitRef = useRef(false);
   useEffect(() => {
     if (!hasFitRef.current && events.length > 0) {
@@ -189,6 +199,56 @@ export function EventMap({ events, selectedEvent, onEventSelect, city }: EventMa
         reuseMaps
       >
         <NavigationControl position="bottom-right" showCompass={false} />
+
+        {/* Venue pins — square, white with dark border */}
+        {venues.map((venue) => (
+          <Marker
+            key={`venue-${venue.id}`}
+            longitude={venue.lng}
+            latitude={venue.lat}
+            anchor="center"
+          >
+            <div
+              style={{ position: "relative" }}
+              onMouseEnter={() => setHoveredVenueId(venue.id)}
+              onMouseLeave={() => setHoveredVenueId(null)}
+              onClick={() => onVenueSelect?.(venue.id)}
+            >
+              <div
+                style={{
+                  width: 14,
+                  height: 14,
+                  backgroundColor: "#ffffff",
+                  border: "2px solid #1E1D1A",
+                  borderRadius: 0,
+                  cursor: "pointer",
+                  transition: "transform 0.1s",
+                  transform: hoveredVenueId === venue.id ? "scale(1.3)" : "scale(1)",
+                }}
+              />
+              {hoveredVenueId === venue.id && (
+                <div
+                  style={{
+                    position: "absolute",
+                    bottom: 20,
+                    left: "50%",
+                    transform: "translateX(-50%)",
+                    whiteSpace: "nowrap",
+                    backgroundColor: "#1E1D1A",
+                    border: "1px solid #2A2926",
+                    borderRadius: 2,
+                    padding: "3px 8px",
+                    pointerEvents: "none",
+                    zIndex: 10,
+                  }}
+                >
+                  <div style={{ color: "#fff", fontSize: 11, fontWeight: 600 }}>{venue.name}</div>
+                  <div style={{ color: "#9B9690", fontSize: 10 }}>{venue.district}</div>
+                </div>
+              )}
+            </div>
+          </Marker>
+        ))}
 
         {/* Event pins */}
         {events

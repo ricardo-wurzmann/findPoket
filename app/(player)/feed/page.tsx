@@ -1,15 +1,16 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import dynamic from "next/dynamic";
 import { useEvents } from "@/hooks/useEvents";
 import { useRealtime } from "@/hooks/useRealtime";
-import { LiveTicker } from "@/components/events/LiveTicker";
 import { EventList } from "@/components/events/EventList";
 import { EventModal } from "@/components/events/EventModal";
+import { VenueModal } from "@/components/venues/VenueModal";
 import { MapSkeleton } from "@/components/map/MapSkeleton";
 import { cn } from "@/lib/utils";
-import type { Event, EventFilter, ViewMode } from "@/types";
+import type { Event, EventFilter, ViewMode, Venue } from "@/types";
+import type { MapVenue } from "@/components/map/EventMap";
 
 const EventMap = dynamic(
   () => import("@/components/map/EventMap").then((m) => ({ default: m.EventMap })),
@@ -35,11 +36,16 @@ const filters: { id: EventFilter; label: string }[] = [
   { id: "open", label: "Abertos" },
 ];
 
+type VenueWithEvents = Venue & { events?: Event[] };
+
 export default function FeedPage() {
   const [view, setView] = useState<ViewMode>("map");
   const [city, setCity] = useState("São Paulo");
   const [filter, setFilter] = useState<EventFilter>("all");
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
+  const [selectedVenue, setSelectedVenue] = useState<VenueWithEvents | null>(null);
+  const [venues, setVenues] = useState<MapVenue[]>([]);
+  const [venueMap, setVenueMap] = useState<Record<string, VenueWithEvents>>({});
 
   const { events, loading } = useEvents({
     city,
@@ -50,11 +56,45 @@ export default function FeedPage() {
   const eventIds = useMemo(() => events.map((e) => e.id), [events]);
   const realtimeCounts = useRealtime(eventIds);
 
+  // Fetch venues once for the map
+  useEffect(() => {
+    const fetchVenues = async () => {
+      try {
+        const res = await fetch("/api/venues");
+        if (!res.ok) return;
+        const data = await res.json();
+        const allVenues: VenueWithEvents[] = data.venues ?? [];
+        const map: Record<string, VenueWithEvents> = {};
+        const pins: MapVenue[] = [];
+        for (const v of allVenues) {
+          map[v.id] = v;
+          if (v.lat && v.lng) {
+            pins.push({
+              id: v.id,
+              name: v.name,
+              lat: v.lat,
+              lng: v.lng,
+              district: v.district,
+              city: v.city,
+            });
+          }
+        }
+        setVenueMap(map);
+        setVenues(pins);
+      } catch {
+        // ignore
+      }
+    };
+    fetchVenues();
+  }, []);
+
+  const handleVenueSelect = (venueId: string) => {
+    const venue = venueMap[venueId];
+    if (venue) setSelectedVenue(venue);
+  };
+
   return (
     <div className="flex flex-col h-screen overflow-hidden">
-      {/* Live ticker */}
-      <LiveTicker events={events} />
-
       {/* Header */}
       <div className="border-b border-border bg-background px-4 lg:px-6 py-4 pl-16 lg:pl-6">
         <div className="flex items-start justify-between mb-4">
@@ -140,8 +180,10 @@ export default function FeedPage() {
           <div className="h-full">
             <EventMap
               events={events}
+              venues={venues}
               selectedEvent={selectedEvent}
               onEventSelect={setSelectedEvent}
+              onVenueSelect={handleVenueSelect}
               city={city}
             />
           </div>
@@ -156,11 +198,17 @@ export default function FeedPage() {
         )}
       </div>
 
-      {/* Modal */}
+      {/* Event Modal */}
       <EventModal
         event={selectedEvent}
         registeredCount={selectedEvent ? realtimeCounts[selectedEvent.id] : undefined}
         onClose={() => setSelectedEvent(null)}
+      />
+
+      {/* Venue Modal */}
+      <VenueModal
+        venue={selectedVenue}
+        onClose={() => setSelectedVenue(null)}
       />
     </div>
   );
