@@ -1,0 +1,34 @@
+{
+  "expo": {
+    "name": "FindPoker",
+    "slug": "findpoker",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.findpoker.app"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#1E1D1A"
+      },
+      "package": "com.findpoker.app"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "FindPoker precisa da sua localização para mostrar eventos próximos."
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "scheme": "findpoker"
+  }
+}

@@ -1,0 +1,18 @@
+export const Colors = {
+  dark: '#1E1D1A',
+  darker: '#0F0F0D',
+  background: '#F2F0EC',
+  white: '#FFFFFF',
+  textPrimary: '#FFFFFF',
+  textSecondary: 'rgba(255,255,255,0.5)',
+  textDark: '#1E1D1A',
+  textMuted: '#6B6660',
+  green: '#22C55E',
+  greenDim: 'rgba(34,197,94,0.1)',
+  amber: '#D97706',
+  amberDim: 'rgba(217,119,6,0.1)',
+  blue: '#3B82F6',
+  gray: '#6B7280',
+  border: 'rgba(255,255,255,0.1)',
+  borderLight: 'rgba(30,29,26,0.05)',
+} as const;
