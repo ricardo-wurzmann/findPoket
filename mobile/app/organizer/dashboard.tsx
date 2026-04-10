@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -6,143 +6,134 @@ import {
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import { Plus, LogOut } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { Colors } from '@/constants/colors';
 import { formatCurrency, formatDateTime } from '@/lib/utils';
+import { OrganizerTopBar } from '@/components/organizer/OrganizerTopBar';
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL;
 
+interface DashboardEvent {
+  id: string;
+  name: string;
+  startsAt: string;
+  status: string;
+  buyIn: number;
+  registrationCount?: number;
+  _count?: { registrations?: number };
+}
+
 interface DashboardData {
-  totalEvents: number;
-  liveEvents: number;
-  totalInterests: number;
-  events: Array<{
-    id: string;
-    name: string;
-    startsAt: string;
-    status: string;
-    buyIn: number;
-    _count: { registrations: number };
-  }>;
+  todayRegistrations: number;
+  estimatedRevenue: number;
+  activeEvents: number;
+  pendingRequests: number;
+  events: DashboardEvent[];
+}
+
+async function fetchDashboard(): Promise<DashboardData> {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  if (!session) throw new Error('Sessão expirada.');
+
+  const res = await fetch(`${API_URL}/api/organizer/dashboard`, {
+    headers: { Authorization: `Bearer ${session.access_token}` },
+  });
+  if (!res.ok) throw new Error('Falha ao carregar dashboard.');
+  return res.json();
 }
 
 export default function OrganizerDashboard() {
   const insets = useSafeAreaInsets();
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const load = async () => {
-      try {
-        const {
-          data: { session },
-        } = await supabase.auth.getSession();
-        if (!session) return;
-
-        const res = await fetch(`${API_URL}/api/organizer/dashboard`, {
-          headers: { Authorization: `Bearer ${session.access_token}` },
-        });
-
-        if (!res.ok) throw new Error('Falha ao carregar dashboard.');
-
-        const json = await res.json();
-        setData(json);
-      } catch (e) {
-        setError(e instanceof Error ? e.message : 'Erro desconhecido');
-      } finally {
-        setLoading(false);
-      }
-    };
-    load();
-  }, []);
-
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-    router.replace('/(auth)/login');
+  const load = async () => {
+    try {
+      const json = await fetchDashboard();
+      setData(json);
+      setError(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Erro desconhecido');
+    } finally {
+      setLoading(false);
+    }
   };
 
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await load();
+    setRefreshing(false);
+  };
+
+  useEffect(() => { load(); }, []);
+
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={[
-        styles.content,
-        { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 32 },
-      ]}
-    >
-      {/* Header */}
-      <View style={styles.header}>
-        <View style={styles.headerRow}>
-          <Text style={styles.title}>Dashboard</Text>
-          <View style={styles.headerActions}>
-            <TouchableOpacity
-              activeOpacity={0.7}
-              style={styles.createBtn}
-              onPress={() => router.push('/organizer/create-event')}
-            >
-              <Plus size={16} color={Colors.dark} />
-              <Text style={styles.createBtnText}>Novo evento</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              activeOpacity={0.7}
-              style={styles.logoutBtn}
-              onPress={handleLogout}
-            >
-              <LogOut size={16} color={Colors.textMuted} />
-            </TouchableOpacity>
-          </View>
-        </View>
-      </View>
+    <View style={styles.root}>
+      <OrganizerTopBar title="Dashboard" />
 
       {loading ? (
         <ActivityIndicator color={Colors.green} size="large" style={styles.loader} />
       ) : error ? (
         <Text style={styles.errorText}>{error}</Text>
-      ) : data ? (
-        <>
+      ) : (
+        <ScrollView
+          contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 32 }]}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.green} />
+          }
+        >
           {/* KPI cards */}
           <View style={styles.kpiGrid}>
-            <KpiCard label="Total de eventos" value={String(data.totalEvents)} />
-            <KpiCard label="Ao vivo agora" value={String(data.liveEvents)} color={Colors.green} />
-            <KpiCard label="Interesses" value={String(data.totalInterests)} color={Colors.amber} />
+            <KpiCard label="Eventos ativos" value={String(data?.activeEvents ?? 0)} />
+            <KpiCard label="Hoje" value={String(data?.todayRegistrations ?? 0)} color={Colors.green} />
+            <KpiCard label="Pendentes" value={String(data?.pendingRequests ?? 0)} color={Colors.amber} />
           </View>
 
           {/* Events list */}
-          <Text style={styles.sectionTitle}>Meus eventos</Text>
-          {data.events.map((event) => (
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Meus eventos</Text>
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() => router.push('/organizer/events' as never)}
+            >
+              <Text style={styles.seeAll}>Ver todos</Text>
+            </TouchableOpacity>
+          </View>
+
+          {(data?.events ?? []).slice(0, 5).map((event) => (
             <TouchableOpacity
               key={event.id}
               activeOpacity={0.7}
               style={styles.eventRow}
-              onPress={() => router.push(`/events/${event.id}`)}
+              onPress={() => router.push(`/events/${event.id}` as never)}
             >
               <View style={styles.eventInfo}>
-                <Text style={styles.eventName} numberOfLines={1}>
-                  {event.name}
-                </Text>
+                <Text style={styles.eventName} numberOfLines={1}>{event.name}</Text>
                 <Text style={styles.eventDate}>{formatDateTime(event.startsAt)}</Text>
               </View>
               <View style={styles.eventRight}>
                 <Text style={styles.eventBuyIn}>{formatCurrency(event.buyIn)}</Text>
-                <Text style={styles.eventCount}>{event._count.registrations} int.</Text>
+                <Text style={styles.eventCount}>
+                  {event.registrationCount ?? event._count?.registrations ?? 0} int.
+                </Text>
               </View>
             </TouchableOpacity>
           ))}
-        </>
-      ) : null}
-    </ScrollView>
+        </ScrollView>
+      )}
+    </View>
   );
 }
 
-interface KpiCardProps {
-  label: string;
-  value: string;
-  color?: string;
-}
+interface KpiCardProps { label: string; value: string; color?: string }
 function KpiCard({ label, value, color }: KpiCardProps) {
   return (
     <View style={styles.kpiCard}>
@@ -153,36 +144,10 @@ function KpiCard({ label, value, color }: KpiCardProps) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: Colors.dark },
-  content: { paddingHorizontal: 20 },
-  header: { marginBottom: 24 },
-  headerRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  title: { fontSize: 28, fontWeight: '700', fontStyle: 'italic', color: Colors.white },
-  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  createBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: Colors.white,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 999,
-  },
-  createBtnText: { fontSize: 13, fontWeight: '700', color: Colors.dark },
-  logoutBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  loader: { marginTop: 40 },
-  errorText: { color: '#F87171', fontSize: 14 },
+  root: { flex: 1, backgroundColor: Colors.dark },
+  loader: { marginTop: 60 },
+  errorText: { color: '#F87171', fontSize: 14, textAlign: 'center', marginTop: 40 },
+  content: { paddingHorizontal: 20, paddingTop: 8 },
   kpiGrid: { flexDirection: 'row', gap: 10, marginBottom: 28 },
   kpiCard: {
     flex: 1,
@@ -192,9 +157,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 4,
   },
-  kpiValue: { fontSize: 24, fontWeight: '700', color: Colors.white },
+  kpiValue: { fontSize: 22, fontWeight: '700', color: Colors.white },
   kpiLabel: { fontSize: 11, color: Colors.textMuted, textAlign: 'center' },
-  sectionTitle: { fontSize: 16, fontWeight: '700', color: Colors.white, marginBottom: 12 },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  sectionTitle: { fontSize: 16, fontWeight: '700', color: Colors.white },
+  seeAll: { fontSize: 13, color: Colors.green, fontWeight: '600' },
   eventRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import {
   View,
   Text,
@@ -12,10 +12,10 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import { ArrowLeft } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { Colors } from '@/constants/colors';
 import { EventType } from '@/types';
+import { OrganizerTopBar } from '@/components/organizer/OrganizerTopBar';
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL;
 
@@ -96,78 +96,69 @@ export default function CreateEventScreen() {
   };
 
   return (
-    <KeyboardAvoidingView
-      style={styles.root}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-    >
-      <ScrollView
-        contentContainerStyle={[
-          styles.container,
-          { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 32 },
-        ]}
-        keyboardShouldPersistTaps="handled"
+    <View style={styles.root}>
+      <OrganizerTopBar title="Criar Evento" />
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
-        {/* Header */}
-        <TouchableOpacity activeOpacity={0.7} style={styles.backCircle} onPress={() => router.back()}>
-          <ArrowLeft size={18} color={Colors.white} />
-        </TouchableOpacity>
-        <Text style={styles.title}>Criar Evento</Text>
-
-        {/* Type selector */}
-        <View style={styles.typeRow}>
-          {EVENT_TYPES.map((t) => (
-            <TouchableOpacity
-              key={t.key}
-              activeOpacity={0.7}
-              style={[styles.typeBtn, eventType === t.key && styles.typeBtnActive]}
-              onPress={() => setEventType(t.key)}
-            >
-              <Text style={[styles.typeBtnText, eventType === t.key && styles.typeBtnTextActive]}>
-                {t.label}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        {/* Common fields */}
-        <Field label="Nome do evento *" value={name} onChangeText={setName} placeholder="Ex: Sunday Main Event" />
-        <Field label="Buy-in (R$) *" value={buyIn} onChangeText={setBuyIn} placeholder="100" keyboardType="numeric" />
-        <Field label="Máx. jogadores" value={maxPlayers} onChangeText={setMaxPlayers} placeholder="100" keyboardType="numeric" />
-        <Field label="Data/Hora início *" value={startsAt} onChangeText={setStartsAt} placeholder="2024-12-01T20:00:00" />
-        <Field label="Local" value={locationLabel} onChangeText={setLocationLabel} placeholder="Endereço ou nome do local" />
-        <Field label="Descrição" value={description} onChangeText={setDescription} placeholder="Detalhes do evento..." multiline />
-
-        {/* Tournament-specific */}
-        {eventType === 'TOURNAMENT' && (
-          <>
-            <Field label="GTD (R$)" value={gtd} onChangeText={setGtd} placeholder="10000" keyboardType="numeric" />
-            <Field label="Stack inicial" value={startingStack} onChangeText={setStartingStack} placeholder="10.000" />
-            <Field label="Duração do nível" value={levelDuration} onChangeText={setLevelDuration} placeholder="15 min" />
-            <Field label="Política de rebuy" value={rebuyPolicy} onChangeText={setRebuyPolicy} placeholder="1 rebuy + 1 add-on" />
-          </>
-        )}
-
-        {/* Cash Game specific */}
-        {eventType === 'CASH_GAME' && (
-          <Field label="Blinds" value={blinds} onChangeText={setBlinds} placeholder="1/2" />
-        )}
-
-        {error && <Text style={styles.errorText}>{error}</Text>}
-
-        <TouchableOpacity
-          activeOpacity={0.7}
-          style={[styles.createBtn, loading && styles.createBtnDisabled]}
-          onPress={handleCreate}
-          disabled={loading}
+        <ScrollView
+          contentContainerStyle={[styles.container, { paddingBottom: insets.bottom + 32 }]}
+          keyboardShouldPersistTaps="handled"
         >
-          {loading ? (
-            <ActivityIndicator color={Colors.dark} />
-          ) : (
-            <Text style={styles.createBtnText}>Criar evento</Text>
+          {/* Type selector */}
+          <View style={styles.typeRow}>
+            {EVENT_TYPES.map((t) => (
+              <TouchableOpacity
+                key={t.key}
+                activeOpacity={0.7}
+                style={[styles.typeBtn, eventType === t.key && styles.typeBtnActive]}
+                onPress={() => setEventType(t.key)}
+              >
+                <Text style={[styles.typeBtnText, eventType === t.key && styles.typeBtnTextActive]}>
+                  {t.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          <Field label="Nome do evento *" value={name} onChangeText={setName} placeholder="Ex: Sunday Main Event" />
+          <Field label="Buy-in (R$) *" value={buyIn} onChangeText={setBuyIn} placeholder="100" keyboardType="numeric" />
+          <Field label="Máx. jogadores" value={maxPlayers} onChangeText={setMaxPlayers} placeholder="100" keyboardType="numeric" />
+          <Field label="Data/Hora início *" value={startsAt} onChangeText={setStartsAt} placeholder="2024-12-01T20:00:00" />
+          <Field label="Local" value={locationLabel} onChangeText={setLocationLabel} placeholder="Endereço ou nome do local" />
+          <Field label="Descrição" value={description} onChangeText={setDescription} placeholder="Detalhes do evento..." multiline />
+
+          {eventType === 'TOURNAMENT' && (
+            <>
+              <Field label="GTD (R$)" value={gtd} onChangeText={setGtd} placeholder="10000" keyboardType="numeric" />
+              <Field label="Stack inicial" value={startingStack} onChangeText={setStartingStack} placeholder="10.000" />
+              <Field label="Duração do nível" value={levelDuration} onChangeText={setLevelDuration} placeholder="15 min" />
+              <Field label="Política de rebuy" value={rebuyPolicy} onChangeText={setRebuyPolicy} placeholder="1 rebuy + 1 add-on" />
+            </>
           )}
-        </TouchableOpacity>
-      </ScrollView>
-    </KeyboardAvoidingView>
+
+          {eventType === 'CASH_GAME' && (
+            <Field label="Blinds" value={blinds} onChangeText={setBlinds} placeholder="1/2" />
+          )}
+
+          {error && <Text style={styles.errorText}>{error}</Text>}
+
+          <TouchableOpacity
+            activeOpacity={0.7}
+            style={[styles.createBtn, loading && styles.createBtnDisabled]}
+            onPress={handleCreate}
+            disabled={loading}
+          >
+            {loading ? (
+              <ActivityIndicator color={Colors.dark} />
+            ) : (
+              <Text style={styles.createBtnText}>Criar evento</Text>
+            )}
+          </TouchableOpacity>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </View>
   );
 }
 
@@ -200,17 +191,8 @@ function Field({ label, value, onChangeText, placeholder, keyboardType = 'defaul
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: Colors.dark },
-  container: { paddingHorizontal: 20 },
-  backCircle: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 16,
-  },
-  title: { fontSize: 28, fontWeight: '700', fontStyle: 'italic', color: Colors.white, marginBottom: 20 },
+  flex: { flex: 1 },
+  container: { paddingHorizontal: 20, paddingTop: 4 },
   typeRow: {
     flexDirection: 'row',
     backgroundColor: 'rgba(255,255,255,0.06)',

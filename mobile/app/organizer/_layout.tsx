@@ -1,5 +1,10 @@
 import { Stack } from 'expo-router';
+import { MenuProvider } from '@/lib/MenuContext';
 
 export default function OrganizerLayout() {
-  return <Stack screenOptions={{ headerShown: false }} />;
+  return (
+    <MenuProvider>
+      <Stack screenOptions={{ headerShown: false }} />
+    </MenuProvider>
+  );
 }

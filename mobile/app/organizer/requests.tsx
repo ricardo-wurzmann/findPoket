@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -9,11 +9,11 @@ import {
   RefreshControl,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
-import { ArrowLeft, Check, X } from 'lucide-react-native';
+import { Check, X } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { Colors } from '@/constants/colors';
 import { formatDateTime } from '@/lib/utils';
+import { OrganizerTopBar } from '@/components/organizer/OrganizerTopBar';
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL;
 
@@ -131,13 +131,8 @@ export default function RequestsScreen() {
   );
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
-      <View style={styles.header}>
-        <TouchableOpacity activeOpacity={0.7} style={styles.backCircle} onPress={() => router.back()}>
-          <ArrowLeft size={18} color={Colors.white} />
-        </TouchableOpacity>
-        <Text style={styles.title}>Solicitações</Text>
-      </View>
+    <View style={styles.container}>
+      <OrganizerTopBar title="Interesses" />
 
       {loading ? (
         <ActivityIndicator color={Colors.green} size="large" style={styles.loader} />
@@ -148,7 +143,7 @@ export default function RequestsScreen() {
           data={requests}
           keyExtractor={(item) => item.id}
           renderItem={renderItem}
-          contentContainerStyle={styles.list}
+          contentContainerStyle={[styles.list, { paddingBottom: insets.bottom + 32 }]}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.green} />
           }
@@ -165,20 +160,9 @@ export default function RequestsScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.dark },
-  header: { paddingHorizontal: 20, paddingBottom: 16 },
-  backCircle: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 12,
-  },
-  title: { fontSize: 28, fontWeight: '700', fontStyle: 'italic', color: Colors.white },
   loader: { marginTop: 40 },
   errorText: { color: '#F87171', fontSize: 14, paddingHorizontal: 20 },
-  list: { paddingHorizontal: 16, paddingBottom: 32 },
+  list: { paddingHorizontal: 16 },
   card: {
     flexDirection: 'row',
     justifyContent: 'space-between',

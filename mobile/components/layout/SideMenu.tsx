@@ -13,8 +13,6 @@ import {
   LogOut,
   Settings,
   Megaphone,
-  LayoutDashboard,
-  Plus,
   ChevronRight,
 } from 'lucide-react-native';
 import { router } from 'expo-router';
@@ -54,8 +52,6 @@ export function SideMenu({ visible, user, onClose, onSignOut }: SideMenuProps) {
   }, [visible, translateX, backdropOpacity]);
 
   if (!visible && translateX.__getValue() === -MENU_WIDTH) return null;
-
-  const isOrganizer = user?.role === 'ORGANIZER';
 
   const navigate = (path: string) => {
     onClose();
@@ -100,22 +96,6 @@ export function SideMenu({ visible, user, onClose, onSignOut }: SideMenuProps) {
         <View style={styles.divider} />
 
         {/* Menu items */}
-        {isOrganizer && (
-          <>
-            <MenuItem
-              icon={<LayoutDashboard size={18} color={Colors.white} />}
-              label="Dashboard"
-              onPress={() => navigate('/organizer/dashboard')}
-            />
-            <MenuItem
-              icon={<Plus size={18} color={Colors.white} />}
-              label="Criar Evento"
-              onPress={() => navigate('/organizer/create-event')}
-            />
-            <View style={styles.divider} />
-          </>
-        )}
-
         <MenuItem
           icon={<Text style={styles.menuEmoji}>🃏</Text>}
           label="Contratar Dealer"
