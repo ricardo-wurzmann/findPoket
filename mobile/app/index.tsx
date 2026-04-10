@@ -1,19 +1,45 @@
 import { Redirect } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Session } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 
+type Destination =
+  | '/(auth)/login'
+  | '/(tabs)'
+  | '/organizer/dashboard';
+
 export default function Index() {
-  const [session, setSession] = useState<Session | null | undefined>(undefined);
+  const [destination, setDestination] = useState<Destination | null>(null);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-    });
+    const check = async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!session) {
+        setDestination('/(auth)/login');
+        return;
+      }
+
+      try {
+        const res = await fetch(
+          `${process.env.EXPO_PUBLIC_API_URL}/api/me`,
+          { headers: { Authorization: `Bearer ${session.access_token}` } }
+        );
+        const data = await res.json();
+        if (data.user?.role === 'ORGANIZER') {
+          setDestination('/organizer/dashboard');
+        } else {
+          setDestination('/(tabs)');
+        }
+      } catch {
+        setDestination('/(tabs)');
+      }
+    };
+
+    check();
   }, []);
 
-  if (session === undefined) return null;
-  if (session) return <Redirect href="/(tabs)" />;
-
-  return <Redirect href="/(auth)/login" />;
+  if (!destination) return null;
+  return <Redirect href={destination} />;
 }

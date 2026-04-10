@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-import { ArrowLeft, Plus } from 'lucide-react-native';
+import { Plus, LogOut } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { Colors } from '@/constants/colors';
 import { formatCurrency, formatDateTime } from '@/lib/utils';
@@ -39,7 +39,9 @@ export default function OrganizerDashboard() {
   useEffect(() => {
     const load = async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
         if (!session) return;
 
         const res = await fetch(`${API_URL}/api/organizer/dashboard`, {
@@ -59,6 +61,11 @@ export default function OrganizerDashboard() {
     load();
   }, []);
 
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    router.replace('/(auth)/login');
+  };
+
   return (
     <ScrollView
       style={styles.container}
@@ -69,19 +76,25 @@ export default function OrganizerDashboard() {
     >
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity activeOpacity={0.7} style={styles.backCircle} onPress={() => router.back()}>
-          <ArrowLeft size={18} color={Colors.white} />
-        </TouchableOpacity>
         <View style={styles.headerRow}>
           <Text style={styles.title}>Dashboard</Text>
-          <TouchableOpacity
-            activeOpacity={0.7}
-            style={styles.createBtn}
-            onPress={() => router.push('/organizer/create-event')}
-          >
-            <Plus size={16} color={Colors.dark} />
-            <Text style={styles.createBtnText}>Novo evento</Text>
-          </TouchableOpacity>
+          <View style={styles.headerActions}>
+            <TouchableOpacity
+              activeOpacity={0.7}
+              style={styles.createBtn}
+              onPress={() => router.push('/organizer/create-event')}
+            >
+              <Plus size={16} color={Colors.dark} />
+              <Text style={styles.createBtnText}>Novo evento</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              activeOpacity={0.7}
+              style={styles.logoutBtn}
+              onPress={handleLogout}
+            >
+              <LogOut size={16} color={Colors.textMuted} />
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
 
@@ -108,7 +121,9 @@ export default function OrganizerDashboard() {
               onPress={() => router.push(`/events/${event.id}`)}
             >
               <View style={styles.eventInfo}>
-                <Text style={styles.eventName} numberOfLines={1}>{event.name}</Text>
+                <Text style={styles.eventName} numberOfLines={1}>
+                  {event.name}
+                </Text>
                 <Text style={styles.eventDate}>{formatDateTime(event.startsAt)}</Text>
               </View>
               <View style={styles.eventRight}>
@@ -123,7 +138,11 @@ export default function OrganizerDashboard() {
   );
 }
 
-interface KpiCardProps { label: string; value: string; color?: string }
+interface KpiCardProps {
+  label: string;
+  value: string;
+  color?: string;
+}
 function KpiCard({ label, value, color }: KpiCardProps) {
   return (
     <View style={styles.kpiCard}>
@@ -137,17 +156,13 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.dark },
   content: { paddingHorizontal: 20 },
   header: { marginBottom: 24 },
-  backCircle: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.1)',
+  headerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 16,
   },
-  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   title: { fontSize: 28, fontWeight: '700', fontStyle: 'italic', color: Colors.white },
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   createBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -158,6 +173,14 @@ const styles = StyleSheet.create({
     borderRadius: 999,
   },
   createBtnText: { fontSize: 13, fontWeight: '700', color: Colors.dark },
+  logoutBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   loader: { marginTop: 40 },
   errorText: { color: '#F87171', fontSize: 14 },
   kpiGrid: { flexDirection: 'row', gap: 10, marginBottom: 28 },

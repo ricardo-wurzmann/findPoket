@@ -47,9 +47,15 @@ export async function getVenues(): Promise<Venue[]> {
 
 export async function getVenueById(id: string): Promise<Venue> {
   const headers = await getAuthHeaders();
+  console.log('[getVenueById] Fetching:', `${API_URL}/api/venues/${id}`);
   const response = await fetch(`${API_URL}/api/venues/${id}`, { headers });
+  console.log('[getVenueById] Response status:', response.status);
 
-  if (!response.ok) throw new Error('Failed to fetch venue');
+  if (!response.ok) {
+    const body = await response.text();
+    console.error('[getVenueById] Body:', body);
+    throw new Error(`Failed to fetch venue: ${response.status}`);
+  }
 
   const data = await response.json();
   return data.venue;
