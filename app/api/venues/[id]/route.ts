@@ -6,8 +6,10 @@ export const dynamic = "force-dynamic";
 
 export async function GET(
   _request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id } = await params;
+
   const supabase = await createClient();
   const {
     data: { user },
@@ -18,7 +20,7 @@ export async function GET(
   }
 
   const venue = await prisma.venue.findUnique({
-    where: { id: params.id },
+    where: { id },
     include: {
       events: {
         where: { status: { in: ["UPCOMING", "LIVE"] } },
