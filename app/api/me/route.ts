@@ -1,14 +1,11 @@
-import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getUserFromRequest } from "@/lib/supabase/get-user-from-request";
 
 export const dynamic = "force-dynamic";
 
-export async function GET() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+export async function GET(request: NextRequest) {
+  const user = await getUserFromRequest(request);
 
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -25,6 +22,13 @@ export async function GET() {
       role: true,
       bio: true,
       avatarUrl: true,
+      birthDate: true,
+      phone: true,
+      profession: true,
+      hendonMob: true,
+      supabaseId: true,
+      createdAt: true,
+      updatedAt: true,
     },
   });
 
