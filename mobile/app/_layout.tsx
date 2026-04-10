@@ -33,13 +33,12 @@ export default function RootLayout() {
       <SafeAreaProvider>
         <MenuProvider>
         <Stack screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="(tabs)" />
+          <Stack.Screen name="index" />
           <Stack.Screen name="(auth)" />
-          <Stack.Screen name="venues/[id]" />
+          <Stack.Screen name="(tabs)" />
+          <Stack.Screen name="organizer" />
           <Stack.Screen name="events/[id]" />
-          <Stack.Screen name="organizer/dashboard" />
-          <Stack.Screen name="organizer/create-event" />
-          <Stack.Screen name="organizer/requests" />
+          <Stack.Screen name="venues/[id]" />
         </Stack>
         </MenuProvider>
       </SafeAreaProvider>

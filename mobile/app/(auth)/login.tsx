@@ -52,11 +52,15 @@ export default function LoginScreen() {
         }
       );
       const data = await res.json();
+      console.log('[login] /api/me response:', JSON.stringify(data));
       const role = data.user?.role;
+      console.log('[login] role detected:', role);
 
       if (role === 'ORGANIZER') {
+        console.log('[login] redirecting to organizer/dashboard');
         router.replace('/organizer/dashboard');
       } else {
+        console.log('[login] redirecting to /(tabs)/');
         router.replace('/(tabs)');
       }
     } catch {
