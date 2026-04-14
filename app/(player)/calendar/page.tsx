@@ -4,6 +4,8 @@ import { formatCurrency, formatMonthYear } from "@/lib/utils";
 import { format, startOfMonth, endOfMonth, addMonths } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { redirect } from "next/navigation";
+import { CalendarEventRow } from "@/components/calendar/CalendarEventRow";
+import type { Event } from "@/types";
 
 export default async function CalendarPage() {
   const supabase = await createClient();
@@ -92,59 +94,12 @@ export default async function CalendarPage() {
                   const badge = getSeriesBadge(event.name);
                   const isLive = event.status === "LIVE";
                   return (
-                    <div
+                    <CalendarEventRow
                       key={event.id}
-                      className="flex items-center gap-4 px-4 py-3 hover:bg-surface transition-colors"
-                    >
-                      {/* Date number */}
-                      <div className="w-12 shrink-0 text-center">
-                        <div className="font-cormorant italic text-3xl font-light text-text leading-none">
-                          {format(new Date(event.startsAt), "d")}
-                        </div>
-                        <div className="tag text-text-muted mt-0.5">
-                          {format(new Date(event.startsAt), "EEE", { locale: ptBR })}
-                        </div>
-                      </div>
-
-                      {/* Divider */}
-                      <div className="w-px h-10 bg-border shrink-0" />
-
-                      {/* Content */}
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-0.5">
-                          {isLive && (
-                            <span className="tag text-green flex items-center gap-1">
-                              <span className="w-1.5 h-1.5 rounded-full bg-green inline-block" />
-                              Ao Vivo
-                            </span>
-                          )}
-                          {badge && (
-                            <span
-                              className="tag px-1.5 py-0.5 rounded-sm text-white"
-                              style={{ backgroundColor: badge.color }}
-                            >
-                              {badge.label}
-                            </span>
-                          )}
-                        </div>
-                        <div className="text-[13px] font-medium truncate">{event.name}</div>
-                        <div className="tag text-text-muted mt-0.5">
-                          {event.venue?.name ?? event.locationLabel ?? "Local a definir"}
-                        </div>
-                      </div>
-
-                      {/* Right side */}
-                      <div className="text-right shrink-0">
-                        {event.gtd && (
-                          <div className="font-cormorant italic text-xl font-light text-amber leading-none">
-                            {formatCurrency(event.gtd)}
-                          </div>
-                        )}
-                        <div className="tag text-text-muted mt-0.5">
-                          {formatCurrency(event.buyIn)} buy-in
-                        </div>
-                      </div>
-                    </div>
+                      event={event as Event}
+                      seriesBadge={badge}
+                      isLive={isLive}
+                    />
                   );
                 })}
               </div>

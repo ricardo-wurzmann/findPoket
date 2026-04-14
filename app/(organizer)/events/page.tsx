@@ -101,7 +101,6 @@ export default async function EventsPage() {
                       <Link
                         href={`/events/${event.id}/waitlist`}
                         className="block tag text-text-muted hover:text-text transition-colors"
-                        onClick={(e) => e.stopPropagation()}
                       >
                         Fila ({event._count.waitlist ?? 0})
                       </Link>

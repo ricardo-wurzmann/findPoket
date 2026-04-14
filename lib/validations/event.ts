@@ -38,7 +38,14 @@ export const createEventSchema = z.object({
   type: z.enum(["TOURNAMENT", "CASH_GAME", "HOME_GAME"]),
   description: z.string().max(1000).optional(),
   buyIn: z.number().min(0).optional(),
-  maxPlayers: z.number().int().min(0).max(1000),
+  maxPlayers: z.preprocess(
+    (val) => {
+      if (val === "" || val === undefined || val === null) return undefined;
+      if (typeof val === "number" && !Number.isFinite(val)) return undefined;
+      return val;
+    },
+    z.number().int().min(0).max(1000).optional().default(0)
+  ),
   startsAt: datetimeLocalSchema,
   endsAt: optionalDatetimeLocalSchema,
   isPrivate: z.boolean().default(false),

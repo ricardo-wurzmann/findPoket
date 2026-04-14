@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { prisma } from "@/lib/prisma";
 import { formatCurrency, getInitials } from "@/lib/utils";
@@ -29,9 +30,30 @@ export default async function ProfilePage() {
 
   if (!dbUser) redirect("/login");
 
+  const interests = await prisma.registration.findMany({
+    where: {
+      userId: dbUser.id,
+      status: { in: ["PENDING", "APPROVED"] },
+      event: { status: { in: ["UPCOMING", "LIVE"] } },
+    },
+    include: {
+      event: {
+        include: { venue: true },
+      },
+    },
+    orderBy: { createdAt: "desc" },
+    take: 10,
+  });
+
   const stats = dbUser.stats;
+  const interestEventIds = new Set(interests.map((i) => i.eventId));
   const upcoming = dbUser.registrations
-    .filter((r) => new Date(r.event.startsAt) > new Date() && r.event.status !== "CANCELLED")
+    .filter(
+      (r) =>
+        new Date(r.event.startsAt) > new Date() &&
+        r.event.status !== "CANCELLED" &&
+        !interestEventIds.has(r.eventId)
+    )
     .slice(0, 5);
 
   // Only show achievements when the user has real tournament history
@@ -180,6 +202,44 @@ export default async function ProfilePage() {
                         {a.prize}
                       </div>
                     </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Declared interests */}
+            {interests.length > 0 && (
+              <div>
+                <h3 className="tag text-text-muted mb-3">Interesses declarados</h3>
+                <div className="space-y-2">
+                  {interests.map((reg) => (
+                    <Link
+                      key={reg.id}
+                      href="/feed"
+                      className="flex items-center justify-between border border-border p-3 rounded-sm hover:bg-surface transition-colors"
+                    >
+                      <div className="min-w-0 flex-1 pr-3">
+                        <div className="text-[13px] font-medium truncate">{reg.event.name}</div>
+                        <div className="tag text-text-muted mt-0.5">
+                          {reg.event.venue?.name ?? reg.event.locationLabel ?? "Local a definir"} ·{" "}
+                          {format(new Date(reg.event.startsAt), "d MMM yyyy", { locale: ptBR })}
+                        </div>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <div className="font-cormorant italic text-xl font-light text-green">
+                          {formatCurrency(reg.event.buyIn)}
+                        </div>
+                        <div
+                          className={
+                            reg.status === "PENDING"
+                              ? "tag text-amber"
+                              : "tag text-green"
+                          }
+                        >
+                          {reg.status === "PENDING" ? "Aguardando" : "Confirmado"}
+                        </div>
+                      </div>
+                    </Link>
                   ))}
                 </div>
               </div>

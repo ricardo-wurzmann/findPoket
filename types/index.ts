@@ -48,6 +48,15 @@ export interface Venue {
   createdAt: Date;
 }
 
+export interface BlindStructureLevel {
+  type?: string;
+  dur?: number;
+  sb?: number;
+  bb?: number;
+  ante?: number;
+  label?: string;
+}
+
 export interface Event {
   id: string;
   name: string;
@@ -76,6 +85,24 @@ export interface Event {
   _count?: {
     registrations: number;
   };
+  /** Parsed from API / Prisma JSON */
+  blindStructure?: BlindStructureLevel[] | null;
+  startStack?: number | null;
+  rebuyEnabled?: boolean | null;
+  rebuyStack?: number | null;
+  rebuyPrice?: number | null;
+  addonEnabled?: boolean | null;
+  addonStack?: number | null;
+  addonPrice?: number | null;
+  blindType?: string | null;
+  sbValue?: number | null;
+  bbValue?: number | null;
+  btnValue?: number | null;
+  buyinMin?: number | null;
+  buyinMax?: number | null;
+  rake?: number | null;
+  rakeCap?: number | null;
+  hideRake?: boolean | null;
 }
 
 export interface Registration {

@@ -1,10 +1,26 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { cn, formatCurrency, formatDate, formatTime, eventTypeLabel } from "@/lib/utils";
 import { registerForEvent } from "@/lib/actions/registrations";
-import type { Event } from "@/types";
+import type { BlindStructureLevel, Event } from "@/types";
+
+function parseBlindStructure(raw: unknown): BlindStructureLevel[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.filter((row): row is BlindStructureLevel => row !== null && typeof row === "object");
+}
+
+function blindLevelsDurationMinutes(levels: BlindStructureLevel[]): number {
+  return levels.reduce((sum, row) => sum + (typeof row.dur === "number" ? row.dur : 0), 0);
+}
+
+function formatDuration(totalMin: number): string {
+  const h = Math.floor(totalMin / 60);
+  const m = totalMin % 60;
+  if (h <= 0) return `${m}min`;
+  return `${h}h ${m}min`;
+}
 
 interface EventModalProps {
   event: Event | null;
@@ -17,6 +33,7 @@ export function EventModal({ event, registeredCount, onClose }: EventModalProps)
   const [loading, setLoading] = useState(false);
   const [registered, setRegistered] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState(false);
   const overlayRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -27,6 +44,7 @@ export function EventModal({ event, registeredCount, onClose }: EventModalProps)
     if (!event) return;
     setRegistered(false);
     setError(null);
+    setExpanded(false);
     const handleKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
     };
@@ -63,6 +81,16 @@ export function EventModal({ event, registeredCount, onClose }: EventModalProps)
   const spotsLeft = event.maxPlayers - count;
   const isLive = event.status === "LIVE";
   const isCashGame = event.type === "CASH_GAME";
+
+  const blindLevels = useMemo(
+    () => parseBlindStructure(event.blindStructure),
+    [event.blindStructure]
+  );
+  const levelRows = useMemo(
+    () => blindLevels.filter((row) => row.type === "level"),
+    [blindLevels]
+  );
+  const blindDurationMin = useMemo(() => blindLevelsDurationMinutes(blindLevels), [blindLevels]);
 
   const ctaLabel = registered
     ? "Interesse declarado ✓"
@@ -211,6 +239,140 @@ export function EventModal({ event, registeredCount, onClose }: EventModalProps)
           {/* Description */}
           {event.description && (
             <p className="text-[12px] text-text-muted leading-relaxed">{event.description}</p>
+          )}
+
+          <button
+            type="button"
+            onClick={() => setExpanded(!expanded)}
+            className="text-[11px] uppercase tracking-wider text-[#9C9890] flex items-center gap-1 hover:text-[#2C2A27] transition-colors mt-2"
+          >
+            {expanded ? "▲ Menos detalhes" : "▼ Ver estrutura completa"}
+          </button>
+
+          {expanded && (
+            <div className="border border-border bg-background rounded-sm p-3 space-y-3 text-[11px] text-text-muted">
+              {!isCashGame && levelRows.length > 0 && (
+                <div>
+                  <div className="tag text-text-muted mb-2">Estrutura de blinds</div>
+                  <div className="border border-border overflow-hidden rounded-sm">
+                    <table className="w-full text-left">
+                      <thead>
+                        <tr className="bg-surface border-b border-border">
+                          <th className="px-2 py-1.5 font-medium text-[10px] uppercase tracking-wider">Nível</th>
+                          <th className="px-2 py-1.5 font-medium text-[10px] uppercase tracking-wider">SB</th>
+                          <th className="px-2 py-1.5 font-medium text-[10px] uppercase tracking-wider">BB</th>
+                          <th className="px-2 py-1.5 font-medium text-[10px] uppercase tracking-wider">Ante</th>
+                          <th className="px-2 py-1.5 font-medium text-[10px] uppercase tracking-wider">Min</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {levelRows.slice(0, 5).map((row, idx) => (
+                          <tr key={idx} className="border-b border-border last:border-0">
+                            <td className="px-2 py-1">{idx + 1}</td>
+                            <td className="px-2 py-1">{row.sb ?? "—"}</td>
+                            <td className="px-2 py-1">{row.bb ?? "—"}</td>
+                            <td className="px-2 py-1">{row.ante ?? "—"}</td>
+                            <td className="px-2 py-1">{row.dur ?? "—"}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  {levelRows.length > 5 && (
+                    <p className="tag text-text-muted mt-1.5">... e mais {levelRows.length - 5} níveis</p>
+                  )}
+                  <p className="text-[11px] mt-2">
+                    Duração estimada: <span className="text-text font-medium">{formatDuration(blindDurationMin)}</span>
+                  </p>
+                </div>
+              )}
+
+              {!isCashGame && event.startStack != null && event.startStack > 0 && (
+                <div className="flex justify-between border-t border-border pt-2">
+                  <span className="tag text-text-muted">Stack inicial</span>
+                  <span className="text-[12px] font-medium text-text">{event.startStack.toLocaleString("pt-BR")}</span>
+                </div>
+              )}
+
+              {!isCashGame && event.rebuyEnabled && (event.rebuyPrice != null || event.rebuyStack != null) && (
+                <div className="border-t border-border pt-2">
+                  <span className="tag text-text-muted">Rebuy</span>
+                  <p className="text-[12px] text-text mt-0.5">
+                    Rebuy:{" "}
+                    {event.rebuyPrice != null ? formatCurrency(event.rebuyPrice) : ""}
+                    {event.rebuyPrice != null && event.rebuyStack != null && " · "}
+                    {event.rebuyStack != null && `Stack ${event.rebuyStack.toLocaleString("pt-BR")}`}
+                  </p>
+                </div>
+              )}
+
+              {!isCashGame && event.addonEnabled && (event.addonPrice != null || event.addonStack != null) && (
+                <div className="border-t border-border pt-2">
+                  <span className="tag text-text-muted">Add-on</span>
+                  <p className="text-[12px] text-text mt-0.5">
+                    Add-on:{" "}
+                    {event.addonPrice != null ? formatCurrency(event.addonPrice) : ""}
+                    {event.addonPrice != null && event.addonStack != null && " · "}
+                    {event.addonStack != null && `Stack ${event.addonStack.toLocaleString("pt-BR")}`}
+                  </p>
+                </div>
+              )}
+
+              {!isCashGame && event.gtd != null && event.gtd > 0 && (
+                <div className="flex justify-between border-t border-border pt-2">
+                  <span className="tag text-text-muted">GTD</span>
+                  <span className="font-cormorant italic text-lg text-amber">{formatCurrency(event.gtd)}</span>
+                </div>
+              )}
+
+              {isCashGame && (
+                <div className="space-y-2">
+                  <div className="tag text-text-muted mb-1">Mesa</div>
+                  {event.blindType === "button" && event.btnValue != null && (
+                    <div className="flex justify-between">
+                      <span className="tag text-text-muted">Button blind</span>
+                      <span className="text-[12px] font-medium text-text">{event.btnValue}</span>
+                    </div>
+                  )}
+                  {(event.blindType === "sb-bb" || !event.blindType) &&
+                    (event.sbValue != null || event.bbValue != null) && (
+                    <div className="flex justify-between">
+                      <span className="tag text-text-muted">Blinds</span>
+                      <span className="text-[12px] font-medium text-text">
+                        {event.sbValue ?? "—"} / {event.bbValue ?? "—"}
+                      </span>
+                    </div>
+                  )}
+                  {event.blindType === "button" && event.btnValue == null && event.blinds && (
+                    <div className="flex justify-between">
+                      <span className="tag text-text-muted">Blinds</span>
+                      <span className="text-[12px] font-medium text-text">{event.blinds}</span>
+                    </div>
+                  )}
+                  {(event.buyinMin != null || event.buyinMax != null) && (
+                    <div className="flex justify-between">
+                      <span className="tag text-text-muted">Buy-in</span>
+                      <span className="text-[12px] font-medium text-text">
+                        {event.buyinMin != null ? formatCurrency(event.buyinMin) : "—"} –{" "}
+                        {event.buyinMax != null ? formatCurrency(event.buyinMax) : "—"}
+                      </span>
+                    </div>
+                  )}
+                  {event.rake != null && event.rake > 0 && (
+                    <div className="flex justify-between">
+                      <span className="tag text-text-muted">Rake</span>
+                      <span className="text-[12px] font-medium text-text">
+                        {event.rake}%
+                        {event.rakeCap != null && event.rakeCap > 0 && !event.hideRake && (
+                          <span className="text-text-muted"> · cap {formatCurrency(event.rakeCap)}</span>
+                        )}
+                        {event.hideRake && <span className="text-text-muted"> (oculto)</span>}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           )}
 
           {/* Error */}
