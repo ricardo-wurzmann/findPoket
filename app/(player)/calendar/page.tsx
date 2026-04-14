@@ -5,7 +5,6 @@ import { format, startOfMonth, endOfMonth, addMonths } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { redirect } from "next/navigation";
 import { CalendarEventRow } from "@/components/calendar/CalendarEventRow";
-import type { Event } from "@/types";
 
 export default async function CalendarPage() {
   const supabase = await createClient();
@@ -20,7 +19,10 @@ export default async function CalendarPage() {
       status: { in: ["UPCOMING", "LIVE"] },
       startsAt: { gte: startOfMonth(now), lte: endOfMonth(threeMonthsAhead) },
     },
-    include: { venue: true },
+    include: {
+      venue: true,
+      _count: { select: { registrations: { where: { status: "APPROVED" } } } },
+    },
     orderBy: { startsAt: "asc" },
   });
 
@@ -35,20 +37,6 @@ export default async function CalendarPage() {
     if (!grouped[key]) grouped[key] = [];
     grouped[key].push(e);
   });
-
-  const series: Record<string, string> = {
-    "BSOP": "#1A6B45",
-    "KSOP": "#1A6B45",
-    "WPT": "#8B6914",
-    "WSOP": "#8B1A1A",
-  };
-
-  function getSeriesBadge(name: string) {
-    for (const [key, color] of Object.entries(series)) {
-      if (name.includes(key)) return { label: key, color };
-    }
-    return null;
-  }
 
   return (
     <div className="flex flex-col h-screen overflow-hidden">
@@ -90,18 +78,9 @@ export default async function CalendarPage() {
                 {formatMonthYear(monthDate)}
               </h2>
               <div className="divide-y divide-border border border-border rounded-sm">
-                {monthEvents.map((event) => {
-                  const badge = getSeriesBadge(event.name);
-                  const isLive = event.status === "LIVE";
-                  return (
-                    <CalendarEventRow
-                      key={event.id}
-                      event={event as Event}
-                      seriesBadge={badge}
-                      isLive={isLive}
-                    />
-                  );
-                })}
+                {monthEvents.map((event) => (
+                  <CalendarEventRow key={event.id} event={event} />
+                ))}
               </div>
             </div>
           );

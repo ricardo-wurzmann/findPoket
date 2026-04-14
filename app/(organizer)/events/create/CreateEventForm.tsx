@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { useForm } from "react-hook-form";
+import { useForm, type FieldError } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { createEvent } from "@/lib/actions/events";
 import { createEventSchema, type CreateEventInput, type BlindLevel } from "@/lib/validations/event";
@@ -29,6 +29,18 @@ const SEATS_PRESETS = [6, 8, 9] as const;
 const REBUY_LIMITS = ["unlimited", "1", "2", "custom"] as const;
 const REBUY_UNTIL = ["break", "level", "time"] as const;
 const ADDON_WHEN = ["first-break", "end-rebuy", "anytime"] as const;
+
+function setNum0(v: unknown): number {
+  return v === "" || v === null || v === undefined || isNaN(Number(v)) ? 0 : Number(v);
+}
+
+function setNumUndef(v: unknown): number | undefined {
+  return v === "" || v === null || v === undefined || isNaN(Number(v)) ? undefined : Number(v);
+}
+
+function setNumDefault(v: unknown, defaultNum: number): number {
+  return v === "" || v === null || v === undefined || isNaN(Number(v)) ? defaultNum : Number(v);
+}
 
 interface VenueOption {
   id: string;
@@ -330,7 +342,9 @@ export function CreateEventForm({ venues }: Props) {
               <div>
                 <label className="text-[10px] uppercase tracking-wider text-[#9C9890] block mb-2">Vagas Máximas</label>
                 <input
-                  {...register("maxPlayers", { valueAsNumber: true })}
+                  {...register("maxPlayers", {
+                    setValueAs: (v) => setNum0(v),
+                  })}
                   type="number"
                   min={0}
                   max={1000}
@@ -342,7 +356,7 @@ export function CreateEventForm({ venues }: Props) {
                 <div>
                   <label className="text-[10px] uppercase tracking-wider text-[#9C9890] block mb-2">Buy-in (R$) *</label>
                   <input
-                    {...register("buyIn", { valueAsNumber: true })}
+                    {...register("buyIn", { setValueAs: (v) => setNum0(v) })}
                     type="number"
                     min={0}
                     step={10}
@@ -356,10 +370,7 @@ export function CreateEventForm({ venues }: Props) {
                 <div>
                   <label className="text-[10px] uppercase tracking-wider text-[#9C9890] block mb-2">GTD (R$)</label>
                   <input
-                    {...register("gtd", {
-                      valueAsNumber: true,
-                      setValueAs: (v) => (v === "" ? undefined : Number(v)),
-                    })}
+                    {...register("gtd", { setValueAs: (v) => setNumUndef(v) })}
                     type="number"
                     min={0}
                     step={1000}
@@ -403,7 +414,7 @@ export function CreateEventForm({ venues }: Props) {
                 <label className="text-[10px] uppercase tracking-wider text-[#9C9890] block mb-2">Latitude (opcional)</label>
                 <input
                   {...register("lat", {
-                    setValueAs: (v) => (v === "" || v === undefined ? undefined : Number(v)),
+                    setValueAs: (v) => setNumUndef(v),
                   })}
                   type="number"
                   step="any"
@@ -415,7 +426,7 @@ export function CreateEventForm({ venues }: Props) {
                 <label className="text-[10px] uppercase tracking-wider text-[#9C9890] block mb-2">Longitude (opcional)</label>
                 <input
                   {...register("lng", {
-                    setValueAs: (v) => (v === "" || v === undefined ? undefined : Number(v)),
+                    setValueAs: (v) => setNumUndef(v),
                   })}
                   type="number"
                   step="any"
@@ -596,7 +607,7 @@ export function CreateEventForm({ venues }: Props) {
                 <div>
                   <label className="text-[10px] uppercase tracking-wider text-[#9C9890] block mb-2">Stack Inicial</label>
                   <input
-                    {...register("startStack", { valueAsNumber: true })}
+                    {...register("startStack", { setValueAs: (v) => setNum0(v) })}
                     type="number"
                     min={0}
                     step={1000}
@@ -634,7 +645,7 @@ export function CreateEventForm({ venues }: Props) {
                     <div>
                       <label className="text-[10px] uppercase tracking-wider text-[#9C9890] block mb-2">Stack do Rebuy</label>
                       <input
-                        {...register("rebuyStack", { valueAsNumber: true })}
+                        {...register("rebuyStack", { setValueAs: (v) => setNumUndef(v) })}
                         type="number"
                         placeholder="10000"
                         className={inputCls}
@@ -643,7 +654,7 @@ export function CreateEventForm({ venues }: Props) {
                     <div>
                       <label className="text-[10px] uppercase tracking-wider text-[#9C9890] block mb-2">Preço do Rebuy (R$)</label>
                       <input
-                        {...register("rebuyPrice", { valueAsNumber: true })}
+                        {...register("rebuyPrice", { setValueAs: (v) => setNumUndef(v) })}
                         type="number"
                         placeholder="200"
                         className={inputCls}
@@ -669,7 +680,7 @@ export function CreateEventForm({ venues }: Props) {
                     <div>
                       <label className="text-[10px] uppercase tracking-wider text-[#9C9890] block mb-2">Quantidade</label>
                       <input
-                        {...register("rebuyLimitCustom", { valueAsNumber: true })}
+                        {...register("rebuyLimitCustom", { setValueAs: (v) => setNumUndef(v) })}
                         type="number"
                         min={1}
                         placeholder="3"
@@ -696,7 +707,7 @@ export function CreateEventForm({ venues }: Props) {
                     <div>
                       <label className="text-[10px] uppercase tracking-wider text-[#9C9890] block mb-2">Até o Nível</label>
                       <input
-                        {...register("rebuyUntilLevel", { valueAsNumber: true })}
+                        {...register("rebuyUntilLevel", { setValueAs: (v) => setNumUndef(v) })}
                         type="number"
                         min={1}
                         placeholder="6"
@@ -719,7 +730,7 @@ export function CreateEventForm({ venues }: Props) {
                     <div>
                       <label className="text-[10px] uppercase tracking-wider text-[#9C9890] block mb-2">Stack do Add-on</label>
                       <input
-                        {...register("addonStack", { valueAsNumber: true })}
+                        {...register("addonStack", { setValueAs: (v) => setNumUndef(v) })}
                         type="number"
                         placeholder="10000"
                         className={inputCls}
@@ -728,7 +739,7 @@ export function CreateEventForm({ venues }: Props) {
                     <div>
                       <label className="text-[10px] uppercase tracking-wider text-[#9C9890] block mb-2">Preço do Add-on (R$)</label>
                       <input
-                        {...register("addonPrice", { valueAsNumber: true })}
+                        {...register("addonPrice", { setValueAs: (v) => setNumUndef(v) })}
                         type="number"
                         placeholder="200"
                         className={inputCls}
@@ -760,7 +771,7 @@ export function CreateEventForm({ venues }: Props) {
                     <div>
                       <label className="text-[10px] uppercase tracking-wider text-[#9C9890] block mb-2">Limite (fichas)</label>
                       <input
-                        {...register("addonStackLimitVal", { valueAsNumber: true })}
+                        {...register("addonStackLimitVal", { setValueAs: (v) => setNumUndef(v) })}
                         type="number"
                         placeholder="10000"
                         className={inputCls}
@@ -794,7 +805,7 @@ export function CreateEventForm({ venues }: Props) {
                     <label className="text-[10px] uppercase tracking-wider text-[#9C9890] block mb-2">SB / BB</label>
                     <div className="flex items-center gap-2">
                       <input
-                        {...register("sbValue", { valueAsNumber: true })}
+                        {...register("sbValue", { setValueAs: (v) => setNumUndef(v) })}
                         type="number"
                         min={0}
                         step={0.5}
@@ -803,7 +814,7 @@ export function CreateEventForm({ venues }: Props) {
                       />
                       <span className="text-[#9C9890] font-medium">/</span>
                       <input
-                        {...register("bbValue", { valueAsNumber: true })}
+                        {...register("bbValue", { setValueAs: (v) => setNumUndef(v) })}
                         type="number"
                         min={0}
                         step={0.5}
@@ -821,7 +832,7 @@ export function CreateEventForm({ venues }: Props) {
                     <div>
                       <label className="text-[10px] uppercase tracking-wider text-[#9C9890] block mb-2">Valor do Straddle</label>
                       <input
-                        {...register("straddleValue", { valueAsNumber: true })}
+                        {...register("straddleValue", { setValueAs: (v) => setNumUndef(v) })}
                         type="number"
                         min={0}
                         step={0.5}
@@ -836,7 +847,7 @@ export function CreateEventForm({ venues }: Props) {
                   <div>
                     <label className="text-[10px] uppercase tracking-wider text-[#9C9890] block mb-2">Button Blind</label>
                     <input
-                      {...register("btnValue", { valueAsNumber: true })}
+                      {...register("btnValue", { setValueAs: (v) => setNumUndef(v) })}
                       type="number"
                       min={0}
                       step={0.5}
@@ -853,7 +864,7 @@ export function CreateEventForm({ venues }: Props) {
                     <div>
                       <label className="text-[10px] uppercase tracking-wider text-[#9C9890] block mb-2">Valor do Straddle</label>
                       <input
-                        {...register("straddleValue", { valueAsNumber: true })}
+                        {...register("straddleValue", { setValueAs: (v) => setNumUndef(v) })}
                         type="number"
                         min={0}
                         placeholder="4"
@@ -903,7 +914,7 @@ export function CreateEventForm({ venues }: Props) {
                 <label className="text-[10px] uppercase tracking-wider text-[#9C9890] block mb-2">Buy-in</label>
                 <div className="flex items-center gap-2">
                   <input
-                    {...register("buyinMin", { valueAsNumber: true })}
+                    {...register("buyinMin", { setValueAs: (v) => setNumUndef(v) })}
                     type="number"
                     min={0}
                     placeholder="Min"
@@ -911,7 +922,7 @@ export function CreateEventForm({ venues }: Props) {
                   />
                   <span className="text-[#9C9890] font-medium">–</span>
                   <input
-                    {...register("buyinMax", { valueAsNumber: true })}
+                    {...register("buyinMax", { setValueAs: (v) => setNumUndef(v) })}
                     type="number"
                     min={0}
                     placeholder="Max"
@@ -925,7 +936,7 @@ export function CreateEventForm({ venues }: Props) {
                 <div>
                   <label className="text-[10px] uppercase tracking-wider text-[#9C9890] block mb-2">Mesas</label>
                   <input
-                    {...register("tableCount", { valueAsNumber: true })}
+                    {...register("tableCount", { setValueAs: (v) => setNumDefault(v, 1) })}
                     type="number"
                     min={1}
                     max={20}
@@ -962,7 +973,7 @@ export function CreateEventForm({ venues }: Props) {
                     </div>
                   ) : (
                     <input
-                      {...register("seatsPerTable", { valueAsNumber: true })}
+                      {...register("seatsPerTable", { setValueAs: (v) => setNumDefault(v, 9) })}
                       type="number"
                       min={2}
                       max={12}
@@ -991,7 +1002,7 @@ export function CreateEventForm({ venues }: Props) {
                     <div>
                       <label className="text-[10px] uppercase tracking-wider text-[#9C9890] block mb-2">Rake %</label>
                       <input
-                        {...register("rake", { valueAsNumber: true })}
+                        {...register("rake", { setValueAs: (v) => setNumUndef(v) })}
                         type="number"
                         min={0}
                         max={10}
@@ -1003,7 +1014,7 @@ export function CreateEventForm({ venues }: Props) {
                     <div>
                       <label className="text-[10px] uppercase tracking-wider text-[#9C9890] block mb-2">Cap (R$)</label>
                       <input
-                        {...register("rakeCap", { valueAsNumber: true })}
+                        {...register("rakeCap", { setValueAs: (v) => setNumUndef(v) })}
                         type="number"
                         min={0}
                         placeholder="20"
@@ -1058,6 +1069,20 @@ export function CreateEventForm({ venues }: Props) {
           {serverError && (
             <div className="text-[12px] text-red-700 bg-red-50 border border-red-200 px-3 py-2">
               {serverError}
+            </div>
+          )}
+
+          {Object.keys(errors).length > 0 && (
+            <div className="text-[11px] text-red-700 bg-red-50 border border-red-200 px-3 py-2 space-y-0.5">
+              <p className="font-medium mb-1">Corrija os erros abaixo:</p>
+              {Object.entries(errors).map(([field, err]) => {
+                const fe = err as FieldError | undefined;
+                return (
+                  <p key={field}>
+                    • {field}: {fe?.message ?? "inválido"}
+                  </p>
+                );
+              })}
             </div>
           )}
 

@@ -7,7 +7,7 @@ import { registerForEvent } from "@/lib/actions/registrations";
 import type { BlindStructureLevel, Event } from "@/types";
 
 function parseBlindStructure(raw: unknown): BlindStructureLevel[] {
-  if (!Array.isArray(raw)) return [];
+  if (!raw || !Array.isArray(raw)) return [];
   return raw.filter((row): row is BlindStructureLevel => row !== null && typeof row === "object");
 }
 
@@ -35,6 +35,19 @@ export function EventModal({ event, registeredCount, onClose }: EventModalProps)
   const [error, setError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(false);
   const overlayRef = useRef<HTMLDivElement>(null);
+
+  const blindLevels = useMemo(
+    () => parseBlindStructure(event?.blindStructure),
+    [event?.blindStructure]
+  );
+  const levelRows = useMemo(
+    () => blindLevels.filter((row) => row.type === "level"),
+    [blindLevels]
+  );
+  const blindDurationMin = useMemo(
+    () => blindLevelsDurationMinutes(blindLevels),
+    [blindLevels]
+  );
 
   useEffect(() => {
     setMounted(true);
@@ -81,16 +94,6 @@ export function EventModal({ event, registeredCount, onClose }: EventModalProps)
   const spotsLeft = event.maxPlayers - count;
   const isLive = event.status === "LIVE";
   const isCashGame = event.type === "CASH_GAME";
-
-  const blindLevels = useMemo(
-    () => parseBlindStructure(event.blindStructure),
-    [event.blindStructure]
-  );
-  const levelRows = useMemo(
-    () => blindLevels.filter((row) => row.type === "level"),
-    [blindLevels]
-  );
-  const blindDurationMin = useMemo(() => blindLevelsDurationMinutes(blindLevels), [blindLevels]);
 
   const ctaLabel = registered
     ? "Interesse declarado ✓"

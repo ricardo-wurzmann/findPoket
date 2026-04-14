@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { prisma } from "@/lib/prisma";
 import { formatCurrency, formatDate, formatTime, eventTypeLabel } from "@/lib/utils";
 import Link from "next/link";
+import { Pencil } from "lucide-react";
 
 export default async function EventsPage() {
   const supabase = await createClient();
@@ -106,6 +107,14 @@ export default async function EventsPage() {
                       </Link>
                     )}
                   </div>
+
+                  <Link
+                    href={`/events/${event.id}/edit`}
+                    className="shrink-0 w-8 h-8 flex items-center justify-center border border-[#E2DDD6] hover:border-[#B8B4AC] hover:bg-[#F5F4F1] transition-colors rounded-sm"
+                    title="Editar evento"
+                  >
+                    <Pencil size={13} className="text-[#9C9890]" />
+                  </Link>
                 </div>
               );
             })}
