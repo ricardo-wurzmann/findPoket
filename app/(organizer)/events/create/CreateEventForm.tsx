@@ -119,6 +119,8 @@ export function CreateEventForm({ venues }: Props) {
   const isCashGame = eventType === "CASH_GAME";
   const isTournament = eventType === "TOURNAMENT" || eventType === "HOME_GAME";
 
+  console.log("[CreateEventForm] eventType:", eventType, "isTournament:", isTournament, "isCashGame:", isCashGame);
+
   const {
     register,
     handleSubmit,
@@ -291,6 +293,9 @@ export function CreateEventForm({ venues }: Props) {
                   </button>
                 ))}
               </div>
+              <p className="text-[11px] text-red-500 mt-1">
+                Debug: type={eventType} | isTournament={String(isTournament)} | isCashGame={String(isCashGame)}
+              </p>
             </div>
 
             {/* Nome */}
