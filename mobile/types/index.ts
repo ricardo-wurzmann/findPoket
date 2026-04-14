@@ -91,9 +91,53 @@ export interface Event {
   status: EventStatus;
   createdAt: string;
   updatedAt: string;
+  // Cash Game fields
+  blindType: string | null;
+  sbValue: number | null;
+  bbValue: number | null;
+  btnValue: number | null;
+  straddleValue: number | null;
+  buyinMin: number | null;
+  buyinMax: number | null;
+  tableCount: number | null;
+  seatsPerTable: number | null;
+  rake: number | null;
+  rakeCap: number | null;
+  hideRake: boolean | null;
+  // Tournament fields
+  startStack: number | null;
+  blindStructure: BlindLevel[] | null;
+  rebuyEnabled: boolean | null;
+  rebuyStack: number | null;
+  rebuyPrice: number | null;
+  rebuyLimit: string | null;
+  addonEnabled: boolean | null;
+  addonStack: number | null;
+  addonPrice: number | null;
   _count?: {
     registrations: number;
   };
+}
+
+export interface BlindLevel {
+  type: 'level' | 'break' | 'latereg';
+  dur: number;
+  sb?: number;
+  bb?: number;
+  ante?: number;
+  label?: string;
+}
+
+export type WaitlistStatus = 'WAITING' | 'CALLED' | 'SEATED' | 'LEFT';
+
+export interface WaitlistEntry {
+  id: string;
+  eventId: string;
+  userId: string | null;
+  name: string;
+  createdAt: string;
+  calledAt: string | null;
+  status: WaitlistStatus;
 }
 
 export interface Registration {

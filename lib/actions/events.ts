@@ -18,13 +18,12 @@ export const getEvents = authActionClient
     const city = parsedInput.city;
     const events = await prisma.event.findMany({
       where: {
-        // City: match venue.city OR locationLabel containing city OR no coordinates (always show)
         ...(city
           ? {
               OR: [
                 { venue: { city } },
                 { locationLabel: { contains: city, mode: "insensitive" } },
-                { lat: null }, // no coordinates → can't filter by city, always include
+                { lat: null },
               ],
             }
           : {}),
@@ -66,13 +65,14 @@ export const getEventById = authActionClient
 export const createEvent = organizerActionClient
   .schema(createEventSchema)
   .action(async ({ parsedInput, ctx }) => {
-    const { endsAt, buyIn, ...rest } = parsedInput;
+    const { endsAt, buyIn, blindStructure, ...rest } = parsedInput;
     const event = await prisma.event.create({
       data: {
         ...rest,
         buyIn: buyIn ?? 0,
         startsAt: new Date(parsedInput.startsAt),
         ...(endsAt ? { endsAt: new Date(endsAt) } : {}),
+        ...(blindStructure ? { blindStructure: blindStructure as object[] } : {}),
         organizerId: ctx.dbUser.id,
       },
     });
@@ -93,13 +93,14 @@ export const updateEvent = organizerActionClient
 
     if (!existing) throw new Error("Evento não encontrado ou sem permissão");
 
-    const { endsAt, ...rest } = data;
+    const { endsAt, blindStructure, ...rest } = data;
     const event = await prisma.event.update({
       where: { id },
       data: {
         ...rest,
         ...(rest.startsAt ? { startsAt: new Date(rest.startsAt) } : {}),
         ...(endsAt ? { endsAt: new Date(endsAt) } : {}),
+        ...(blindStructure ? { blindStructure: blindStructure as object[] } : {}),
       },
     });
 

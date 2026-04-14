@@ -20,7 +20,12 @@ export default async function EventsPage() {
     where: { organizerId: dbUser.id },
     include: {
       venue: true,
-      _count: { select: { registrations: { where: { status: "APPROVED" } } } },
+      _count: {
+        select: {
+          registrations: { where: { status: "APPROVED" } },
+          waitlist: { where: { status: "WAITING" } },
+        },
+      },
     },
     orderBy: { startsAt: "desc" },
   });
@@ -85,12 +90,21 @@ export default async function EventsPage() {
                     </div>
                   </div>
 
-                  <div className="text-right shrink-0">
+                  <div className="text-right shrink-0 space-y-1">
                     <div className="font-cormorant italic text-xl font-light text-green">
                       {formatCurrency(event.buyIn)}
                     </div>
                     {event.gtd && (
                       <div className="tag text-amber">GTD {formatCurrency(event.gtd)}</div>
+                    )}
+                    {event.type === "CASH_GAME" && (
+                      <Link
+                        href={`/events/${event.id}/waitlist`}
+                        className="block tag text-text-muted hover:text-text transition-colors"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        Fila ({event._count.waitlist ?? 0})
+                      </Link>
                     )}
                   </div>
                 </div>

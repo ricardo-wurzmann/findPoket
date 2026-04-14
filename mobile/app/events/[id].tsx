@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
-  Animated,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
@@ -15,13 +14,13 @@ import {
   Calendar,
   Users,
   DollarSign,
-  Clock,
   Trophy,
+  Clock,
 } from 'lucide-react-native';
 import { Colors } from '@/constants/colors';
-import { getEventById, declareInterest } from '@/lib/api/events';
+import { getEventById, declareInterest, getWaitlistPosition, joinWaitlist, leaveWaitlist } from '@/lib/api/events';
 import { Event } from '@/types';
-import { formatDateTime, formatCurrency, getInitials } from '@/lib/utils';
+import { formatDateTime, formatCurrency } from '@/lib/utils';
 
 const STATUS_LABELS: Record<string, string> = {
   LIVE: 'Ao vivo',
@@ -52,10 +51,31 @@ export default function EventDetailScreen() {
   const [declaring, setDeclaring] = useState(false);
   const [declared, setDeclared] = useState(false);
 
+  // Waitlist state
+  const [waitlistLoading, setWaitlistLoading] = useState(false);
+  const [waitlistEntryId, setWaitlistEntryId] = useState<string | null>(null);
+  const [waitlistPosition, setWaitlistPosition] = useState<number | null>(null);
+  const [waitlistCount, setWaitlistCount] = useState(0);
+  const [waitlistStatus, setWaitlistStatus] = useState<string | null>(null);
+
   useEffect(() => {
     if (!id) return;
     getEventById(id)
-      .then(setEvent)
+      .then((ev) => {
+        setEvent(ev);
+        if (ev.type === 'CASH_GAME') {
+          getWaitlistPosition(ev.id)
+            .then((r) => {
+              setWaitlistCount(r.count);
+              if (r.entry) {
+                setWaitlistEntryId(r.entry.id);
+                setWaitlistPosition(r.position);
+                setWaitlistStatus(r.entry.status);
+              }
+            })
+            .catch(() => undefined);
+        }
+      })
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false));
   }, [id]);
@@ -67,10 +87,44 @@ export default function EventDetailScreen() {
       await declareInterest(event.id);
       setDeclared(true);
     } catch {
-      // silently fail — user may already have declared
       setDeclared(true);
     } finally {
       setDeclaring(false);
+    }
+  };
+
+  const handleJoinWaitlist = async () => {
+    if (!event || waitlistLoading) return;
+    setWaitlistLoading(true);
+    try {
+      const r = await joinWaitlist(event.id);
+      setWaitlistCount(r.count);
+      if (r.entry) {
+        setWaitlistEntryId(r.entry.id);
+        setWaitlistStatus(r.entry.status);
+      }
+      const pos = await getWaitlistPosition(event.id);
+      setWaitlistPosition(pos.position);
+    } catch {
+      // ignore
+    } finally {
+      setWaitlistLoading(false);
+    }
+  };
+
+  const handleLeaveWaitlist = async () => {
+    if (!event || !waitlistEntryId || waitlistLoading) return;
+    setWaitlistLoading(true);
+    try {
+      await leaveWaitlist(waitlistEntryId);
+      setWaitlistEntryId(null);
+      setWaitlistPosition(null);
+      setWaitlistStatus(null);
+      setWaitlistCount((c) => Math.max(0, c - 1));
+    } catch {
+      // ignore
+    } finally {
+      setWaitlistLoading(false);
     }
   };
 
@@ -206,27 +260,73 @@ export default function EventDetailScreen() {
         </View>
       )}
 
-      {/* Declare interest button */}
+      {/* Action button */}
       {event.status !== 'FINISHED' && event.status !== 'CANCELLED' && (
         <View style={styles.actionSection}>
-          <TouchableOpacity
-            activeOpacity={0.7}
-            style={[
-              styles.interestBtn,
-              declared && styles.interestBtnDeclared,
-              declaring && styles.interestBtnDisabled,
-            ]}
-            onPress={handleDeclareInterest}
-            disabled={declaring || declared}
-          >
-            {declaring ? (
-              <ActivityIndicator color={Colors.dark} />
-            ) : (
-              <Text style={styles.interestBtnText}>
-                {declared ? 'Interesse declarado ✓' : 'Declarar interesse'}
-              </Text>
-            )}
-          </TouchableOpacity>
+          {event.type === 'CASH_GAME' ? (
+            <>
+              {/* Waitlist count info */}
+              {waitlistCount > 0 && !waitlistEntryId && (
+                <Text style={styles.waitlistInfo}>
+                  {waitlistCount} {waitlistCount === 1 ? 'pessoa na fila' : 'pessoas na fila'}
+                </Text>
+              )}
+              {waitlistEntryId ? (
+                <>
+                  <View style={styles.waitlistPositionBox}>
+                    <Text style={styles.waitlistPositionLabel}>
+                      {waitlistStatus === 'CALLED' ? 'Você foi chamado! 🟢' : `Você está na posição #${waitlistPosition ?? '...'} na fila`}
+                    </Text>
+                    <Text style={styles.waitlistCountText}>{waitlistCount} na fila total</Text>
+                  </View>
+                  <TouchableOpacity
+                    activeOpacity={0.7}
+                    style={[styles.leaveWaitlistBtn, waitlistLoading && styles.interestBtnDisabled]}
+                    onPress={handleLeaveWaitlist}
+                    disabled={waitlistLoading}
+                  >
+                    {waitlistLoading ? (
+                      <ActivityIndicator color={Colors.textMuted} />
+                    ) : (
+                      <Text style={styles.leaveWaitlistText}>Sair da fila</Text>
+                    )}
+                  </TouchableOpacity>
+                </>
+              ) : (
+                <TouchableOpacity
+                  activeOpacity={0.7}
+                  style={[styles.waitlistBtn, waitlistLoading && styles.interestBtnDisabled]}
+                  onPress={handleJoinWaitlist}
+                  disabled={waitlistLoading}
+                >
+                  {waitlistLoading ? (
+                    <ActivityIndicator color={Colors.dark} />
+                  ) : (
+                    <Text style={styles.waitlistBtnText}>Entrar na lista de espera</Text>
+                  )}
+                </TouchableOpacity>
+              )}
+            </>
+          ) : (
+            <TouchableOpacity
+              activeOpacity={0.7}
+              style={[
+                styles.interestBtn,
+                declared && styles.interestBtnDeclared,
+                declaring && styles.interestBtnDisabled,
+              ]}
+              onPress={handleDeclareInterest}
+              disabled={declaring || declared}
+            >
+              {declaring ? (
+                <ActivityIndicator color={Colors.dark} />
+              ) : (
+                <Text style={styles.interestBtnText}>
+                  {declared ? 'Interesse declarado ✓' : 'Declarar interesse'}
+                </Text>
+              )}
+            </TouchableOpacity>
+          )}
         </View>
       )}
     </ScrollView>
@@ -350,4 +450,36 @@ const styles = StyleSheet.create({
   interestBtnDeclared: { backgroundColor: Colors.green },
   interestBtnDisabled: { opacity: 0.7 },
   interestBtnText: { fontSize: 16, fontWeight: '700', color: Colors.dark },
+  waitlistBtn: {
+    height: 52,
+    borderRadius: 12,
+    backgroundColor: Colors.green,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  waitlistBtnText: { fontSize: 16, fontWeight: '700', color: Colors.dark },
+  waitlistInfo: {
+    fontSize: 13,
+    color: Colors.textMuted,
+    textAlign: 'center',
+    marginBottom: 10,
+  },
+  waitlistPositionBox: {
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 10,
+    alignItems: 'center',
+  },
+  waitlistPositionLabel: { fontSize: 15, fontWeight: '600', color: Colors.white },
+  waitlistCountText: { fontSize: 12, color: Colors.textMuted, marginTop: 4 },
+  leaveWaitlistBtn: {
+    height: 44,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  leaveWaitlistText: { fontSize: 14, color: Colors.textMuted },
 });

@@ -27,6 +27,7 @@ model User {
   registrations   Registration[]
   venueInterests  VenueInterest[]
   stats           PlayerStats?
+  waitlistEntries Waitlist[]
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
 }
@@ -100,12 +101,44 @@ model Event {
   organizerId   String
   organizer     User          @relation(fields: [organizerId], references: [id])
   registrations Registration[]
+  waitlist      Waitlist[]
   lat           Float?
   lng           Float?
   locationLabel String?
   status        EventStatus   @default(UPCOMING)
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
+
+  // Cash Game fields
+  blindType     String?
+  sbValue       Float?
+  bbValue       Float?
+  btnValue      Float?
+  straddleValue Float?
+  buyinMin      Float?
+  buyinMax      Float?
+  tableCount    Int?
+  seatsPerTable Int?
+  rake          Float?
+  rakeCap       Float?
+  hideRake      Boolean?      @default(false)
+
+  // Tournament fields
+  startStack        Int?
+  blindStructure    Json?
+  rebuyEnabled      Boolean?  @default(false)
+  rebuyStack        Int?
+  rebuyPrice        Float?
+  rebuyLimit        String?
+  rebuyLimitCustom  Int?
+  rebuyUntil        String?
+  rebuyUntilLevel   Int?
+  addonEnabled      Boolean?  @default(false)
+  addonStack        Int?
+  addonPrice        Float?
+  addonWhen         String?
+  addonStackLimit   Boolean?  @default(false)
+  addonStackLimitVal Int?
 }
 
 enum EventType {
@@ -137,6 +170,25 @@ enum RegStatus {
   PENDING
   APPROVED
   DENIED
+}
+
+model Waitlist {
+  id        String        @id @default(uuid())
+  eventId   String
+  event     Event         @relation(fields: [eventId], references: [id])
+  userId    String?
+  user      User?         @relation(fields: [userId], references: [id])
+  name      String
+  createdAt DateTime      @default(now())
+  calledAt  DateTime?
+  status    WaitlistStatus @default(WAITING)
+}
+
+enum WaitlistStatus {
+  WAITING
+  CALLED
+  SEATED
+  LEFT
 }
 
 model DealerRequest {

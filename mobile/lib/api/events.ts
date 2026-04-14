@@ -78,3 +78,36 @@ export async function declareInterest(eventId: string): Promise<void> {
 
   if (!response.ok) throw new Error('Failed to declare interest');
 }
+
+export interface WaitlistPositionResult {
+  entry: { id: string; status: string } | null;
+  position: number | null;
+  count: number;
+}
+
+export async function getWaitlistPosition(eventId: string): Promise<WaitlistPositionResult> {
+  const headers = await getAuthHeaders();
+  const response = await fetch(`${API_URL}/api/waitlist?eventId=${encodeURIComponent(eventId)}`, { headers });
+  if (!response.ok) throw new Error('Failed to get waitlist position');
+  return response.json() as Promise<WaitlistPositionResult>;
+}
+
+export async function joinWaitlist(eventId: string): Promise<WaitlistPositionResult> {
+  const headers = await getAuthHeaders();
+  const response = await fetch(`${API_URL}/api/waitlist`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ eventId }),
+  });
+  if (!response.ok) throw new Error('Failed to join waitlist');
+  return response.json() as Promise<WaitlistPositionResult>;
+}
+
+export async function leaveWaitlist(waitlistId: string): Promise<void> {
+  const headers = await getAuthHeaders();
+  const response = await fetch(`${API_URL}/api/waitlist/${encodeURIComponent(waitlistId)}`, {
+    method: 'DELETE',
+    headers,
+  });
+  if (!response.ok) throw new Error('Failed to leave waitlist');
+}
