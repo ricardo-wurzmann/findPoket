@@ -14,19 +14,16 @@ import MapView, { Marker, PROVIDER_DEFAULT } from 'react-native-maps';
 import * as Location from 'expo-location';
 import { Navigation } from 'lucide-react-native';
 import { Colors } from '@/constants/colors';
-import { useEvents } from '@/hooks/useEvents';
 import { useVenues } from '@/hooks/useVenues';
-import { EventPin } from '@/components/map/EventPin';
+import { useSeries } from '@/hooks/useSeries';
 import { VenuePin } from '@/components/map/VenuePin';
+import { SeriesPin } from '@/components/map/SeriesPin';
 import { EventFilter } from '@/types';
-import { filterEventsByType } from '@/lib/utils';
 
 const FILTER_CHIPS: { key: EventFilter; label: string }[] = [
   { key: 'all', label: 'Todos' },
-  { key: 'TOURNAMENT', label: 'Torneios' },
-  { key: 'CASH_GAME', label: 'Cash Game' },
-  { key: 'HOME_GAME', label: 'Home Game' },
   { key: 'venues', label: 'Casas' },
+  { key: 'series', label: 'Séries' },
 ];
 
 const darkMapStyle = [
@@ -45,11 +42,13 @@ export default function MapScreen() {
   const router = useRouter();
   const mapRef = useRef<MapView>(null);
   const [activeFilter, setActiveFilter] = useState<EventFilter>('all');
-  const { events, loading: eventsLoading } = useEvents();
   const { venues, loading: venuesLoading } = useVenues();
+  const { series, loading: seriesLoading } = useSeries();
 
-  const filteredEvents = filterEventsByType(events, activeFilter);
   const showVenues = activeFilter === 'all' || activeFilter === 'venues';
+  const showSeries = activeFilter === 'all' || activeFilter === 'series';
+
+  const seriesPins = series.filter((s) => s.lat != null && s.lng != null);
 
   const handleMyLocation = async () => {
     const { status } = await Location.requestForegroundPermissionsAsync();
@@ -86,19 +85,6 @@ export default function MapScreen() {
         }}
         customMapStyle={darkMapStyle}
       >
-        {!eventsLoading &&
-          filteredEvents.map((event) => (
-            <Marker
-              key={event.id}
-              coordinate={{
-                latitude: event.lat ?? -23.5505,
-                longitude: event.lng ?? -46.6333,
-              }}
-              onPress={() => router.push(`/events/${event.id}`)}
-            >
-              <EventPin event={event} />
-            </Marker>
-          ))}
         {!venuesLoading &&
           showVenues &&
           venues.map((venue) => (
@@ -113,9 +99,22 @@ export default function MapScreen() {
               <VenuePin />
             </Marker>
           ))}
+        {!seriesLoading &&
+          showSeries &&
+          seriesPins.map((s) => (
+            <Marker
+              key={s.id}
+              coordinate={{
+                latitude: s.lat!,
+                longitude: s.lng!,
+              }}
+              onPress={() => router.push(`/series/${s.id}`)}
+            >
+              <SeriesPin />
+            </Marker>
+          ))}
       </MapView>
 
-      {/* Filter chips */}
       <View style={[styles.filtersWrapper, { top: insets.top + 72 }]}>
         <ScrollView
           horizontal
@@ -137,7 +136,6 @@ export default function MapScreen() {
         </ScrollView>
       </View>
 
-      {/* My location button */}
       <TouchableOpacity
         style={[styles.locationBtn, { bottom: insets.bottom + 100 }]}
         activeOpacity={0.8}
@@ -146,7 +144,7 @@ export default function MapScreen() {
         <Navigation size={20} color={Colors.white} />
       </TouchableOpacity>
 
-      {(eventsLoading || venuesLoading) && (
+      {(venuesLoading || seriesLoading) && (
         <View style={styles.loadingOverlay}>
           <ActivityIndicator color={Colors.green} />
         </View>
@@ -199,10 +197,9 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   loadingOverlay: {
-    position: 'absolute',
-    bottom: 100,
-    left: 0,
-    right: 0,
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.25)',
     alignItems: 'center',
+    justifyContent: 'center',
   },
 });

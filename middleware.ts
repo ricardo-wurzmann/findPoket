@@ -21,9 +21,19 @@ export async function middleware(request: NextRequest) {
   const isOrganizerRoute =
     pathname.startsWith("/dashboard") ||
     pathname.startsWith("/events") ||
-    pathname.startsWith("/requests");
+    pathname.startsWith("/requests") ||
+    pathname === "/series" ||
+    pathname.startsWith("/series/create") ||
+    pathname.startsWith("/my-series") ||
+    pathname.startsWith("/venues/create");
+  const pathParts = pathname.split("/").filter(Boolean);
+  const isPlayerSeriesDetail =
+    pathParts[0] === "series" &&
+    pathParts.length === 2 &&
+    pathParts[1] !== "create";
+  const isPlayerRouteExtended = isPlayerRoute || isPlayerSeriesDetail;
 
-  if (!user && (isPlayerRoute || isOrganizerRoute)) {
+  if (!user && (isPlayerRouteExtended || isOrganizerRoute)) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     return NextResponse.redirect(url);

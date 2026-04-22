@@ -19,6 +19,19 @@ export async function GET(
     where: { id },
     include: {
       venue: true,
+      series: {
+        select: {
+          id: true,
+          name: true,
+          city: true,
+          district: true,
+          address: true,
+          startsAt: true,
+          endsAt: true,
+          lat: true,
+          lng: true,
+        },
+      },
       organizer: { select: { id: true, name: true, handle: true } },
       _count: {
         select: {

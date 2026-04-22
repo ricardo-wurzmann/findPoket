@@ -136,7 +136,9 @@ export function EventModal({ event, registeredCount, onClose }: EventModalProps)
           <div className="tag text-[#6B6660] mb-1">
             {event.venue
               ? `${event.venue.name} — ${event.venue.district}`
-              : event.locationLabel ?? "Local a confirmar"}
+              : event.series
+                ? `${event.series.name} — ${event.series.city}`
+                : event.locationLabel ?? "Local a confirmar"}
           </div>
           <h2 className="text-white text-[18px] font-semibold leading-tight">{event.name}</h2>
         </div>

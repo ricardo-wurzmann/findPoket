@@ -10,7 +10,7 @@ import { EventModal } from "@/components/events/EventModal";
 import { MapSkeleton } from "@/components/map/MapSkeleton";
 import { cn } from "@/lib/utils";
 import type { Event, EventFilter, ViewMode, Venue } from "@/types";
-import type { MapVenue } from "@/components/map/EventMap";
+import type { MapVenue, MapSeriesPin } from "@/components/map/EventMap";
 
 const EventMap = dynamic(
   () => import("@/components/map/EventMap").then((m) => ({ default: m.EventMap })),
@@ -31,14 +31,25 @@ const CITIES = [
 const FILTERS: { id: EventFilter; label: string }[] = [
   { id: "all", label: "Todos" },
   { id: "venues", label: "Casas" },
-  { id: "TOURNAMENT", label: "Torneios" },
-  { id: "CASH_GAME", label: "Cash Game" },
-  { id: "HOME_GAME", label: "Home Game" },
+  { id: "series", label: "Séries" },
 ];
 
 type VenueWithMeta = Venue & {
   events?: Event[];
   _count?: { events?: number; interests?: number };
+};
+
+type SeriesRow = {
+  id: string;
+  name: string;
+  city: string;
+  district: string | null;
+  address: string;
+  startsAt: string;
+  endsAt: string | null;
+  lat: number | null;
+  lng: number | null;
+  _count?: { events: number };
 };
 
 function isOpenNow(openTime: string, closeTime: string): boolean {
@@ -61,19 +72,19 @@ export default function FeedPage() {
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [venues, setVenues] = useState<MapVenue[]>([]);
   const [allVenues, setAllVenues] = useState<VenueWithMeta[]>([]);
+  const [seriesRows, setSeriesRows] = useState<SeriesRow[]>([]);
+  const [seriesLoading, setSeriesLoading] = useState(true);
 
-  // Only fetch events when the filter isn't venues-only
-  const eventType = (filter !== "all" && filter !== "venues") ? filter : undefined;
+  const needEvents = view === "list" && filter !== "venues" && filter !== "series";
 
   const { events, loading: eventsLoading } = useEvents({
     city,
-    type: eventType,
+    enabled: needEvents,
   });
 
   const eventIds = useMemo(() => events.map((e) => e.id), [events]);
   const realtimeCounts = useRealtime(eventIds);
 
-  // Fetch venues once for the map + venue filter list
   useEffect(() => {
     const fetchVenues = async () => {
       try {
@@ -101,30 +112,72 @@ export default function FeedPage() {
     fetchVenues();
   }, []);
 
-  // Derive what pins to show on map based on filter
-  const mapEvents: Event[] =
-    filter === "venues" ? [] : events;
+  useEffect(() => {
+    const loadSeries = async () => {
+      setSeriesLoading(true);
+      try {
+        const res = await fetch("/api/series");
+        if (!res.ok) return;
+        const data = await res.json();
+        setSeriesRows(data.series ?? []);
+      } catch {
+        // ignore
+      } finally {
+        setSeriesLoading(false);
+      }
+    };
+    loadSeries();
+  }, []);
+
+  const seriesPins: MapSeriesPin[] = useMemo(
+    () =>
+      seriesRows
+        .filter((s) => s.lat != null && s.lng != null)
+        .map((s) => ({
+          id: s.id,
+          name: s.name,
+          lat: s.lat!,
+          lng: s.lng!,
+          city: s.city,
+          district: s.district,
+        })),
+    [seriesRows]
+  );
 
   const mapVenues: MapVenue[] =
-    filter === "TOURNAMENT" || filter === "HOME_GAME"
-      ? []
-      : venues;
+    filter === "series" ? [] : venues;
 
-  const loading = eventsLoading;
+  const mapSeriesPins: MapSeriesPin[] =
+    filter === "venues" ? [] : seriesPins;
+
+  const loading = needEvents ? eventsLoading : false;
+  const mapLoading = seriesLoading;
+
+  const headerCount =
+    filter === "venues"
+      ? `${allVenues.length} casas cadastradas`
+      : filter === "series"
+        ? `${seriesRows.length} séries`
+        : `${venues.length + seriesPins.length} locais no mapa`;
 
   return (
     <div className="flex flex-col h-screen overflow-hidden">
-      {/* Header */}
       <div className="border-b border-border bg-background px-4 lg:px-6 py-4 pl-16 lg:pl-6">
         <div className="flex items-start justify-between mb-4">
           <div>
             <h1 className="text-[15px] font-semibold text-text">Poker em {city}</h1>
             <p className="tag text-text-muted mt-0.5">
-              {loading
-                ? "Carregando..."
-                : filter === "venues"
-                ? `${allVenues.length} casas cadastradas`
-                : `${events.length} eventos`}
+              {view === "map"
+                ? mapLoading
+                  ? "Carregando..."
+                  : headerCount
+                : loading
+                  ? "Carregando..."
+                  : filter === "venues"
+                    ? `${allVenues.length} casas cadastradas`
+                    : filter === "series"
+                      ? `${seriesRows.length} séries`
+                      : `${events.length} eventos`}
             </p>
           </div>
           <svg width="64" height="48" viewBox="0 0 64 48" fill="none" className="opacity-20 shrink-0">
@@ -134,25 +187,25 @@ export default function FeedPage() {
           </svg>
         </div>
 
-        {/* Controls */}
         <div className="flex items-center gap-2 flex-wrap">
-          {/* City selector */}
           <select
             value={city}
             onChange={(e) => setCity(e.target.value)}
             className="border border-border bg-background text-text text-[12px] px-3 py-1.5 rounded-sm focus:border-[#B8B4AC] transition-colors cursor-pointer appearance-none pr-7"
             style={{
-              backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%231E1D1A' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E\")",
+              backgroundImage:
+                "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%231E1D1A' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E\")",
               backgroundRepeat: "no-repeat",
               backgroundPosition: "right 6px center",
             }}
           >
             {CITIES.map((c) => (
-              <option key={c} value={c}>{c}</option>
+              <option key={c} value={c}>
+                {c}
+              </option>
             ))}
           </select>
 
-          {/* Filter chips */}
           <div className="flex gap-1.5 flex-wrap">
             {FILTERS.map((f) => (
               <button
@@ -170,7 +223,6 @@ export default function FeedPage() {
             ))}
           </div>
 
-          {/* View toggle */}
           <div className="ml-auto flex border border-border rounded-sm overflow-hidden shrink-0">
             <button
               onClick={() => setView("map")}
@@ -194,20 +246,12 @@ export default function FeedPage() {
         </div>
       </div>
 
-      {/* Content */}
       <div className="flex-1 overflow-hidden">
         {view === "map" ? (
           <div className="h-full">
-            <EventMap
-              events={mapEvents}
-              venues={mapVenues}
-              selectedEvent={selectedEvent}
-              onEventSelect={setSelectedEvent}
-              city={city}
-            />
+            <EventMap venues={mapVenues} seriesPins={mapSeriesPins} city={city} />
           </div>
         ) : filter === "venues" ? (
-          /* Venue list */
           <div className="h-full overflow-y-auto">
             {allVenues.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-40 text-text-muted">
@@ -218,11 +262,12 @@ export default function FeedPage() {
               <div className="divide-y divide-border">
                 {allVenues.map((venue) => {
                   const open = isOpenNow(venue.openTime, venue.closeTime);
-                  const todayEvents = venue.events?.filter((e) => {
-                    const d = new Date(e.startsAt);
-                    const today = new Date();
-                    return d.toDateString() === today.toDateString();
-                  }) ?? [];
+                  const todayEvents =
+                    venue.events?.filter((e) => {
+                      const d = new Date(e.startsAt);
+                      const today = new Date();
+                      return d.toDateString() === today.toDateString();
+                    }) ?? [];
                   const tournamentCount = venue._count?.events ?? 0;
                   return (
                     <button
@@ -230,28 +275,18 @@ export default function FeedPage() {
                       onClick={() => router.push(`/venues/${venue.id}`)}
                       className="w-full text-left flex items-center gap-4 px-6 py-4 hover:bg-surface transition-colors"
                     >
-                      {/* Status dot */}
                       <div
-                        className={cn(
-                          "w-2 h-2 rounded-full shrink-0",
-                          open ? "bg-green" : "bg-border"
-                        )}
+                        className={cn("w-2 h-2 rounded-full shrink-0", open ? "bg-green" : "bg-border")}
                       />
-
-                      {/* Info */}
                       <div className="flex-1 min-w-0">
                         <div className="text-[13px] font-medium truncate">{venue.name}</div>
                         <div className="tag text-text-muted mt-0.5">
                           {venue.district} · {venue.openTime}–{venue.closeTime}
                         </div>
                         {todayEvents.length > 0 && (
-                          <div className="tag text-amber mt-0.5">
-                            {todayEvents[0].name}
-                          </div>
+                          <div className="tag text-amber mt-0.5">{todayEvents[0].name}</div>
                         )}
                       </div>
-
-                      {/* Right */}
                       <div className="text-right shrink-0">
                         <div className="tag text-text-muted">{venue.tableCount} mesas</div>
                         {tournamentCount > 0 && (
@@ -266,8 +301,35 @@ export default function FeedPage() {
               </div>
             )}
           </div>
+        ) : filter === "series" ? (
+          <div className="h-full overflow-y-auto divide-y divide-border">
+            {seriesRows.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-40 text-text-muted px-6">
+                <span className="text-4xl mb-3 opacity-20">◆</span>
+                <p className="tag">Nenhuma série ativa</p>
+              </div>
+            ) : (
+              seriesRows.map((s) => (
+                <button
+                  key={s.id}
+                  onClick={() => router.push(`/series/${s.id}`)}
+                  className="w-full text-left flex items-center justify-between gap-4 px-6 py-4 hover:bg-surface transition-colors"
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="text-[13px] font-semibold truncate">{s.name}</div>
+                    <div className="tag text-text-muted mt-0.5">
+                      {s.city}
+                      {s.district ? ` · ${s.district}` : ""}
+                    </div>
+                  </div>
+                  <div className="tag text-amber shrink-0">
+                    {s._count?.events ?? 0} torneio{(s._count?.events ?? 0) !== 1 ? "s" : ""}
+                  </div>
+                </button>
+              ))
+            )}
+          </div>
         ) : (
-          /* Event list */
           <div className="h-full overflow-hidden">
             <EventList
               events={events}
@@ -278,7 +340,6 @@ export default function FeedPage() {
         )}
       </div>
 
-      {/* Event Modal */}
       <EventModal
         event={selectedEvent}
         registeredCount={selectedEvent ? realtimeCounts[selectedEvent.id] : undefined}

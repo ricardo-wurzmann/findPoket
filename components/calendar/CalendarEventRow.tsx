@@ -3,12 +3,15 @@
 import { useState } from "react";
 import type { Event } from "@/types";
 import { EventModal } from "@/components/events/EventModal";
+import { isEventLive } from "@/lib/calendar/is-event-live";
 
 export interface CalendarEvent {
   id: string;
   name: string;
   startsAt: Date | string;
+  endsAt?: Date | string | null;
   buyIn: number | null;
+  gtd?: number | null;
   isMajor: boolean;
   isPrivate: boolean;
   status: string;
@@ -17,6 +20,7 @@ export interface CalendarEvent {
   locationLabel: string | null;
   maxPlayers: number;
   venue: { id: string; name: string; district: string } | null;
+  series?: { id: string; name: string; city: string } | null;
   _count?: { registrations: number };
   [key: string]: unknown;
 }
@@ -30,8 +34,19 @@ export function CalendarEventRow({ event }: CalendarEventRowProps) {
   const date = new Date(event.startsAt);
   const day = date.getDate();
   const month = date.toLocaleString("pt-BR", { month: "short" }).toUpperCase();
+  const live = isEventLive({
+    status: event.status,
+    startsAt: new Date(event.startsAt),
+    endsAt: event.endsAt ? new Date(event.endsAt) : null,
+  });
 
   const modalEvent = event as unknown as Event;
+
+  const locationLabel =
+    event.venue?.name ??
+    (event.series ? `${event.series.name} · ${event.series.city}` : null) ??
+    event.locationLabel ??
+    "Local a confirmar";
 
   return (
     <>
@@ -53,13 +68,18 @@ export function CalendarEventRow({ event }: CalendarEventRowProps) {
         </div>
         <div className="cdiv" />
         <div className="ci">
-          <div className="cseries" style={{ color: "var(--green)" }}>
-            {event.isMajor ? "MAJOR" : event.type === "CASH_GAME" ? "CASH GAME" : "TORNEIO"}
+          <div className="cseries flex flex-wrap items-center gap-2" style={{ color: "var(--green)" }}>
+            {live && (
+              <span className="tag px-1.5 py-0.5 rounded-sm bg-green/15 text-green border border-green/30">
+                LIVE
+              </span>
+            )}
+            <span>
+              {event.isMajor ? "MAJOR" : event.type === "CASH_GAME" ? "CASH GAME" : "TORNEIO"}
+            </span>
           </div>
           <div className="cname">{event.name}</div>
-          <div className="cloc">
-            {event.venue?.name ?? event.locationLabel ?? "Local a confirmar"}
-          </div>
+          <div className="cloc">{locationLabel}</div>
         </div>
         <div className="cprize">
           <div className="plbl">Buy-in</div>

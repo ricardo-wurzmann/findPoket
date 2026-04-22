@@ -1,6 +1,7 @@
 "use server";
 
 import { z } from "zod";
+import type { Prisma } from "@prisma/client";
 import { authActionClient, organizerActionClient } from "@/lib/safe-action";
 import { prisma } from "@/lib/prisma";
 import { createEventSchema, updateEventSchema } from "@/lib/validations/event";
@@ -32,6 +33,19 @@ export const getEvents = authActionClient
       },
       include: {
         venue: true,
+        series: {
+          select: {
+            id: true,
+            name: true,
+            city: true,
+            district: true,
+            address: true,
+            startsAt: true,
+            endsAt: true,
+            lat: true,
+            lng: true,
+          },
+        },
         organizer: { select: { id: true, name: true, handle: true } },
         _count: { select: { registrations: { where: { status: "APPROVED" } } } },
       },
@@ -48,6 +62,19 @@ export const getEventById = authActionClient
       where: { id: parsedInput.id },
       include: {
         venue: true,
+        series: {
+          select: {
+            id: true,
+            name: true,
+            city: true,
+            district: true,
+            address: true,
+            startsAt: true,
+            endsAt: true,
+            lat: true,
+            lng: true,
+          },
+        },
         organizer: { select: { id: true, name: true, handle: true } },
         registrations: {
           where: { status: "APPROVED" },
@@ -65,7 +92,15 @@ export const getEventById = authActionClient
 export const createEvent = organizerActionClient
   .schema(createEventSchema)
   .action(async ({ parsedInput, ctx }) => {
-    const { endsAt, buyIn, blindStructure, ...rest } = parsedInput;
+    const { endsAt, buyIn, blindStructure, seriesId, venueId, ...rest } = parsedInput;
+
+    if (seriesId) {
+      const series = await prisma.series.findFirst({
+        where: { id: seriesId, organizerId: ctx.dbUser.id, isActive: true },
+      });
+      if (!series) throw new Error("Série inválida ou não pertence a você");
+    }
+
     const event = await prisma.event.create({
       data: {
         ...rest,
@@ -74,6 +109,8 @@ export const createEvent = organizerActionClient
         ...(endsAt ? { endsAt: new Date(endsAt) } : {}),
         ...(blindStructure ? { blindStructure: blindStructure as object[] } : {}),
         organizerId: ctx.dbUser.id,
+        venueId: seriesId ? null : venueId ?? null,
+        seriesId: seriesId ?? null,
       },
     });
 
@@ -93,15 +130,41 @@ export const updateEvent = organizerActionClient
 
     if (!existing) throw new Error("Evento não encontrado ou sem permissão");
 
-    const { endsAt, blindStructure, ...rest } = data;
+    const { endsAt, blindStructure, seriesId, venueId, ...rest } = data;
+
+    if (seriesId && venueId) {
+      throw new Error("Escolha uma casa ou uma série, não ambos.");
+    }
+
+    if (seriesId !== undefined && seriesId) {
+      const series = await prisma.series.findFirst({
+        where: { id: seriesId, organizerId: ctx.dbUser.id, isActive: true },
+      });
+      if (!series) throw new Error("Série inválida ou não pertence a você");
+    }
+
     const event = await prisma.event.update({
       where: { id },
       data: {
         ...rest,
+        ...(seriesId !== undefined
+          ? {
+              seriesId: seriesId || null,
+              ...(seriesId ? { venueId: null } : {}),
+            }
+          : {}),
+        ...(venueId !== undefined
+          ? {
+              venueId: venueId ?? null,
+              ...(venueId ? { seriesId: null } : {}),
+            }
+          : {}),
         ...(rest.startsAt ? { startsAt: new Date(rest.startsAt) } : {}),
-        ...(endsAt ? { endsAt: new Date(endsAt) } : {}),
-        ...(blindStructure ? { blindStructure: blindStructure as object[] } : {}),
-      },
+        ...(endsAt !== undefined ? { endsAt: endsAt ? new Date(endsAt) : null } : {}),
+        ...(blindStructure !== undefined
+          ? { blindStructure: blindStructure ? (blindStructure as object[]) : null }
+          : {}),
+      } as Prisma.EventUncheckedUpdateInput,
     });
 
     return { event };

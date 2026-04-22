@@ -90,6 +90,7 @@ export default async function ProfilePage() {
               {dbUser.city && (
                 <p className="tag text-[#6B6660] mt-0.5">{dbUser.city}</p>
               )}
+              <p className="tag text-[#6B6660] mt-2 break-all">{dbUser.email}</p>
             </div>
 
             {/* Bio */}

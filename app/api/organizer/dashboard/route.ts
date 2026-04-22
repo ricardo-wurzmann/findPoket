@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
 
   const today = new Date();
 
-  const [todayRegistrations, events, pendingRequests] = await Promise.all([
+  const [todayRegistrations, events, pendingRequests, venues, series] = await Promise.all([
     prisma.registration.count({
       where: {
         event: { organizerId: dbUser.id },
@@ -39,6 +39,16 @@ export async function GET(request: NextRequest) {
     prisma.registration.count({
       where: { event: { organizerId: dbUser.id }, status: "PENDING" },
     }),
+    prisma.venue.findMany({
+      where: { ownerId: dbUser.id, isActive: true },
+      select: { id: true, name: true, city: true },
+      orderBy: { name: "asc" },
+    }),
+    prisma.series.findMany({
+      where: { organizerId: dbUser.id, isActive: true },
+      select: { id: true, name: true, startsAt: true },
+      orderBy: { startsAt: "desc" },
+    }),
   ]);
 
   const activeEvents = events.filter(
@@ -54,6 +64,8 @@ export async function GET(request: NextRequest) {
     estimatedRevenue,
     activeEvents,
     pendingRequests,
+    venues,
+    series,
     events: events.map((e) => ({
       id: e.id,
       name: e.name,

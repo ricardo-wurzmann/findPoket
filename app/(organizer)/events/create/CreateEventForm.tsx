@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useForm, type FieldError } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -50,8 +50,15 @@ interface VenueOption {
   lng: number;
 }
 
+interface SeriesOption {
+  id: string;
+  name: string;
+}
+
 interface Props {
   venues: VenueOption[];
+  seriesOptions: SeriesOption[];
+  initialSeries?: { id: string; name: string } | null;
 }
 
 function Toggle({ value, onChange }: { value: boolean; onChange: (v: boolean) => void }) {
@@ -97,7 +104,7 @@ function ToggleRow({ label, desc, value, onChange }: { label: string; desc?: str
   );
 }
 
-export function CreateEventForm({ venues }: Props) {
+export function CreateEventForm({ venues, seriesOptions, initialSeries = null }: Props) {
   const router = useRouter();
   const [serverError, setServerError] = useState<string | null>(null);
   const [eventType, setEventType] = useState<string>("TOURNAMENT");
@@ -147,10 +154,20 @@ export function CreateEventForm({ venues }: Props) {
       buyIn: 550,
       startsAt: defaultStartsAt,
       startStack: 10000,
+      seriesId: initialSeries?.id,
     },
   });
 
   const startStack = watch("startStack") ?? 10000;
+  const venueIdVal = watch("venueId");
+  const seriesIdVal = watch("seriesId");
+
+  useEffect(() => {
+    if (initialSeries?.id) {
+      setValue("seriesId", initialSeries.id);
+      setValue("venueId", undefined);
+    }
+  }, [initialSeries?.id, setValue]);
 
   const handleTypeChange = (type: string) => {
     setEventType(type);
@@ -161,8 +178,9 @@ export function CreateEventForm({ venues }: Props) {
   };
 
   const handleVenueChange = (venueId: string) => {
+    setValue("seriesId", undefined, { shouldValidate: true });
     const selected = venues.find((v) => v.id === venueId);
-    setValue("venueId", venueId || undefined);
+    setValue("venueId", venueId || undefined, { shouldValidate: true });
     if (selected) {
       setValue("lat", selected.lat);
       setValue("lng", selected.lng);
@@ -170,6 +188,13 @@ export function CreateEventForm({ venues }: Props) {
       setValue("lat", undefined);
       setValue("lng", undefined);
     }
+  };
+
+  const handleSeriesChange = (seriesId: string) => {
+    setValue("venueId", undefined, { shouldValidate: true });
+    setValue("seriesId", seriesId || undefined, { shouldValidate: true });
+    setValue("lat", undefined);
+    setValue("lng", undefined);
   };
 
   const handlePresetSelect = useCallback((presetId: string) => {
@@ -287,6 +312,12 @@ export function CreateEventForm({ venues }: Props) {
 
       <div className="flex-1 overflow-y-auto">
         <form onSubmit={handleSubmit(onSubmit)} className="max-w-2xl mx-auto px-6 py-6 space-y-4">
+          {initialSeries && (
+            <div className="border border-[#E2DDD6] bg-white px-4 py-3 text-[12px] text-[#2C2A27]">
+              <span className="text-[9px] uppercase tracking-widest text-[#9C9890] mr-2">Série</span>
+              <span className="font-medium">{initialSeries.name}</span>
+            </div>
+          )}
 
           {/* Section 1 — Informações básicas */}
           <CardSection title="Informações Básicas">
@@ -381,15 +412,34 @@ export function CreateEventForm({ venues }: Props) {
               )}
             </div>
 
-            {/* Location */}
+            {/* Location — série OU casa (exclusivo) */}
+            {seriesOptions.length > 0 && (
+              <div>
+                <label className="text-[10px] uppercase tracking-wider text-[#9C9890] block mb-2">Série</label>
+                <select
+                  value={seriesIdVal ?? ""}
+                  onChange={(e) => handleSeriesChange(e.target.value)}
+                  className={inputCls}
+                >
+                  <option value="">— Nenhuma —</option>
+                  {seriesOptions.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
             {venues.length > 0 && (
               <div>
                 <label className="text-[10px] uppercase tracking-wider text-[#9C9890] block mb-2">Casa de Poker</label>
                 <select
+                  value={venueIdVal ?? ""}
                   onChange={(e) => handleVenueChange(e.target.value)}
                   className={inputCls}
                 >
-                  <option value="">— Nenhuma (evento avulso) —</option>
+                  <option value="">— Nenhuma —</option>
                   {venues.map((v) => (
                     <option key={v.id} value={v.id}>
                       {v.name} ({v.district})
@@ -397,6 +447,10 @@ export function CreateEventForm({ venues }: Props) {
                   ))}
                 </select>
               </div>
+            )}
+
+            {!seriesIdVal && !venueIdVal && (
+              <p className="text-[11px] text-[#9C9890]">Avulso (sem casa ou série)</p>
             )}
 
             <div>

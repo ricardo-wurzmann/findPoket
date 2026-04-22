@@ -103,7 +103,7 @@ export function SideMenu({ visible, user, onClose, onSignOut }: SideMenuProps) {
         />
         <MenuItem
           icon={<Megaphone size={18} color={Colors.white} />}
-          label="Anunciar Jogo"
+          label="Anunciar Evento Privado"
           onPress={() => navigate('/announce')}
         />
         <MenuItem

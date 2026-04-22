@@ -48,6 +48,18 @@ export interface Venue {
   createdAt: Date;
 }
 
+export interface SeriesSummary {
+  id: string;
+  name: string;
+  city: string;
+  district: string | null;
+  address: string;
+  startsAt: Date;
+  endsAt: Date | null;
+  lat: number | null;
+  lng: number | null;
+}
+
 export interface BlindStructureLevel {
   type?: string;
   dur?: number;
@@ -75,6 +87,8 @@ export interface Event {
   blinds: string | null;
   venueId: string | null;
   venue: Venue | null;
+  seriesId: string | null;
+  series: SeriesSummary | null;
   organizerId: string;
   lat: number | null;
   lng: number | null;
@@ -141,5 +155,5 @@ export interface NavItem {
 }
 
 export type ViewMode = "map" | "list";
-export type EventFilter = "all" | "venues" | "TOURNAMENT" | "CASH_GAME" | "HOME_GAME";
+export type EventFilter = "all" | "venues" | "series" | "TOURNAMENT" | "CASH_GAME" | "HOME_GAME";
 export type TimeFilter = "today" | "week" | "month";

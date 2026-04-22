@@ -39,6 +39,7 @@ export default function RootLayout() {
           <Stack.Screen name="organizer" />
           <Stack.Screen name="events/[id]" />
           <Stack.Screen name="venues/[id]" />
+          <Stack.Screen name="series/[id]" />
         </Stack>
         </MenuProvider>
       </SafeAreaProvider>

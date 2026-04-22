@@ -84,6 +84,8 @@ export interface Event {
   blinds: string | null;
   venueId: string | null;
   venue: Venue | null;
+  seriesId?: string | null;
+  series?: { id: string; name: string; city: string } | null;
   organizerId: string;
   lat: number | null;
   lng: number | null;
@@ -168,7 +170,7 @@ export interface DealerRequest {
   createdAt: string;
 }
 
-export type EventFilter = 'all' | 'venues' | 'TOURNAMENT' | 'CASH_GAME' | 'HOME_GAME';
+export type EventFilter = 'all' | 'venues' | 'series' | 'TOURNAMENT' | 'CASH_GAME' | 'HOME_GAME';
 export type TimeFilter = 'today' | 'week' | 'month';
 
 export interface SearchResults {

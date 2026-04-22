@@ -7,6 +7,8 @@ interface UseEventsOptions {
   city?: string;
   type?: string;
   onlyOpen?: boolean;
+  /** When false, skips fetch (empty list). */
+  enabled?: boolean;
 }
 
 export function useEvents(options: UseEventsOptions = {}) {
@@ -15,6 +17,12 @@ export function useEvents(options: UseEventsOptions = {}) {
   const [error, setError] = useState<string | null>(null);
 
   const fetchEvents = useCallback(async () => {
+    if (options.enabled === false) {
+      setEvents([]);
+      setLoading(false);
+      setError(null);
+      return;
+    }
     setLoading(true);
     setError(null);
 
@@ -33,7 +41,7 @@ export function useEvents(options: UseEventsOptions = {}) {
     } finally {
       setLoading(false);
     }
-  }, [options.city, options.type, options.onlyOpen]);
+  }, [options.city, options.type, options.onlyOpen, options.enabled]);
 
   useEffect(() => {
     fetchEvents();

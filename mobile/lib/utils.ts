@@ -53,6 +53,7 @@ export function filterEventsByTime(events: Event[], filter: TimeFilter): Event[]
 export function filterEventsByType(events: Event[], filter: EventFilter): Event[] {
   if (filter === 'all') return events;
   if (filter === 'venues') return events.filter((e) => e.venueId !== null);
+  if (filter === 'series') return [];
   return events.filter((e) => e.type === filter);
 }
 

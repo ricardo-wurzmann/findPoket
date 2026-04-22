@@ -11,6 +11,8 @@ interface DashboardData {
   estimatedRevenue: number;
   activeEvents: number;
   pendingRequests: number;
+  venues: Array<{ id: string; name: string; city: string }>;
+  series: Array<{ id: string; name: string; startsAt: string }>;
   events: Array<{
     id: string;
     name: string;
@@ -148,6 +150,63 @@ export default function DashboardPage() {
                 </div>
               ))}
         </div>
+
+        {data && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 px-6 py-6 border-b border-border">
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="tag text-text-muted">Minhas Casas</h2>
+                <Link
+                  href="/venues/create"
+                  className="tag text-text border border-border px-2 py-1 rounded-sm hover:bg-surface transition-colors"
+                >
+                  Nova Casa
+                </Link>
+              </div>
+              {(data.venues ?? []).length === 0 ? (
+                <p className="tag text-text-muted border border-border rounded-sm p-4">Nenhuma casa cadastrada.</p>
+              ) : (
+                <div className="space-y-2">
+                  {(data.venues ?? []).map((v) => (
+                    <Link
+                      key={v.id}
+                      href={`/venues/${v.id}`}
+                      className="block border border-border rounded-sm px-3 py-2.5 hover:bg-surface transition-colors text-[13px] font-medium"
+                    >
+                      {v.name} <span className="tag text-text-muted font-normal">· {v.city}</span>
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="tag text-text-muted">Minhas Séries</h2>
+                <Link
+                  href="/series/create"
+                  className="tag text-text border border-border px-2 py-1 rounded-sm hover:bg-surface transition-colors"
+                >
+                  Nova Série
+                </Link>
+              </div>
+              {(data.series ?? []).length === 0 ? (
+                <p className="tag text-text-muted border border-border rounded-sm p-4">Nenhuma série cadastrada.</p>
+              ) : (
+                <div className="space-y-2">
+                  {(data.series ?? []).map((s) => (
+                    <Link
+                      key={s.id}
+                      href={`/my-series/${s.id}`}
+                      className="block border border-border rounded-sm px-3 py-2.5 hover:bg-surface transition-colors text-[13px] font-medium"
+                    >
+                      {s.name}
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Events list */}
         <div className="px-6 py-6">

@@ -12,11 +12,13 @@ const playerNav: { icon: string; label: string; href: string; badge?: boolean }[
   { icon: "◉", label: "Casas", href: "/venues" },
   { icon: "◧", label: "Dealer", href: "/dealer" },
   { icon: "◎", label: "Perfil", href: "/profile" },
-  { icon: "⊕", label: "Anunciar", href: "/announce" },
+  { icon: "⊕", label: "Anunciar Evento Privado", href: "/announce" },
 ];
 
 const organizerNav: { icon: string; label: string; href: string; badge?: boolean }[] = [
   { icon: "◈", label: "Dashboard", href: "/dashboard" },
+  { icon: "◆", label: "Minhas Séries", href: "/series" },
+  { icon: "◇", label: "Nova Série", href: "/series/create" },
   { icon: "◷", label: "Eventos", href: "/events" },
   { icon: "◉", label: "Interesses", href: "/requests", badge: true },
   { icon: "◧", label: "Dealer", href: "/dealer" },
@@ -91,7 +93,10 @@ export function Sidebar({
       {/* Navigation */}
       <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
         {navItems.map((item) => {
-          const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
+          const isActive =
+            item.href === "/series"
+              ? pathname === "/series"
+              : pathname === item.href || pathname.startsWith(item.href + "/");
           return (
             <Link
               key={item.href}

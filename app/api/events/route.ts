@@ -35,6 +35,19 @@ export async function GET(request: NextRequest) {
     },
     include: {
       venue: true,
+      series: {
+        select: {
+          id: true,
+          name: true,
+          city: true,
+          district: true,
+          address: true,
+          startsAt: true,
+          endsAt: true,
+          lat: true,
+          lng: true,
+        },
+      },
       organizer: { select: { id: true, name: true, handle: true } },
       _count: { select: { registrations: { where: { status: { in: ["PENDING", "APPROVED"] } } } } },
     },
@@ -90,7 +103,13 @@ export async function POST(request: NextRequest) {
       rebuyPolicy: typeof body.rebuyPolicy === "string" ? body.rebuyPolicy : null,
       blinds: typeof body.blinds === "string" ? body.blinds : null,
       locationLabel: typeof body.locationLabel === "string" ? body.locationLabel : null,
-      venueId: typeof body.venueId === "string" ? body.venueId : null,
+      seriesId: typeof body.seriesId === "string" ? body.seriesId : null,
+      venueId:
+        typeof body.seriesId === "string" && body.seriesId
+          ? null
+          : typeof body.venueId === "string"
+            ? body.venueId
+            : null,
       // Cash Game fields
       blindType: typeof body.blindType === "string" ? body.blindType : null,
       sbValue: typeof body.sbValue === "number" ? body.sbValue : null,

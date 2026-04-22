@@ -3,8 +3,6 @@
 import { useRef, useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Map, { Marker, NavigationControl, type MapRef } from "react-map-gl";
-import { EventPin } from "./EventPin";
-import type { Event } from "@/types";
 import "mapbox-gl/dist/mapbox-gl.css";
 
 export interface CityCoord {
@@ -14,13 +12,13 @@ export interface CityCoord {
 }
 
 export const CITY_COORDS: Record<string, CityCoord> = {
-  "São Paulo":        { lng: -46.6333, lat: -23.5505, zoom: 12 },
-  "Rio de Janeiro":   { lng: -43.1729, lat: -22.9068, zoom: 12 },
-  "Belo Horizonte":   { lng: -43.9378, lat: -19.9191, zoom: 12 },
-  "Curitiba":         { lng: -49.2654, lat: -25.4284, zoom: 12 },
-  "Porto Alegre":     { lng: -51.2177, lat: -30.0346, zoom: 12 },
-  "Foz do Iguaçu":    { lng: -54.5854, lat: -25.5163, zoom: 12 },
-  "Gramado":          { lng: -50.8769, lat: -29.3783, zoom: 13 },
+  "São Paulo": { lng: -46.6333, lat: -23.5505, zoom: 12 },
+  "Rio de Janeiro": { lng: -43.1729, lat: -22.9068, zoom: 12 },
+  "Belo Horizonte": { lng: -43.9378, lat: -19.9191, zoom: 12 },
+  Curitiba: { lng: -49.2654, lat: -25.4284, zoom: 12 },
+  "Porto Alegre": { lng: -51.2177, lat: -30.0346, zoom: 12 },
+  "Foz do Iguaçu": { lng: -54.5854, lat: -25.5163, zoom: 12 },
+  Gramado: { lng: -50.8769, lat: -29.3783, zoom: 13 },
   "Balneário Camboriú": { lng: -48.6358, lat: -26.9906, zoom: 13 },
 };
 
@@ -33,76 +31,30 @@ export interface MapVenue {
   city: string;
 }
 
+export interface MapSeriesPin {
+  id: string;
+  name: string;
+  lat: number;
+  lng: number;
+  city: string;
+  district: string | null;
+}
+
 interface UserPin {
   lng: number;
   lat: number;
 }
 
 interface EventMapProps {
-  events: Event[];
   venues?: MapVenue[];
-  selectedEvent: Event | null;
-  onEventSelect: (event: Event) => void;
+  seriesPins?: MapSeriesPin[];
   city?: string;
 }
 
 const PIN_PULSE_CSS = `
-  @keyframes pinLiveRing1 {
-    0%   { transform: scale(1);   opacity: 0.6; }
-    100% { transform: scale(2.8); opacity: 0; }
-  }
-  @keyframes pinLiveRing2 {
-    0%   { transform: scale(1);   opacity: 0.6; }
-    100% { transform: scale(2.4); opacity: 0; }
-  }
-  @keyframes pinUpcomingRing {
-    0%   { transform: scale(1);   opacity: 0.5; }
-    100% { transform: scale(2.6); opacity: 0; }
-  }
-  @keyframes pinMajorRing1 {
-    0%   { transform: scale(1);   opacity: 0.5; }
-    100% { transform: scale(2.8); opacity: 0; }
-  }
-  @keyframes pinMajorRing2 {
-    0%   { transform: scale(1);   opacity: 0.5; }
-    100% { transform: scale(2.4); opacity: 0; }
-  }
   @keyframes userLocPulse {
     0%   { transform: scale(1);   opacity: 0.7; }
     100% { transform: scale(3);   opacity: 0; }
-  }
-
-  .pin-live::before, .pin-live::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    border-radius: 50%;
-    background: #22C55E;
-    animation: pinLiveRing1 1.8s ease-out infinite;
-  }
-  .pin-live::after {
-    animation: pinLiveRing2 1.8s ease-out 0.6s infinite;
-  }
-
-  .pin-upcoming::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    border-radius: 50%;
-    background: #D97706;
-    animation: pinUpcomingRing 2.4s ease-out infinite;
-  }
-
-  .pin-major::before, .pin-major::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    border-radius: 50%;
-    background: #D97706;
-    animation: pinMajorRing1 2.4s ease-out infinite;
-  }
-  .pin-major::after {
-    animation: pinMajorRing2 2.4s ease-out 0.8s infinite;
   }
 
   .user-loc-pin::before {
@@ -115,12 +67,13 @@ const PIN_PULSE_CSS = `
   }
 `;
 
-export function EventMap({ events, venues = [], selectedEvent, onEventSelect, city }: EventMapProps) {
+export function EventMap({ venues = [], seriesPins = [], city }: EventMapProps) {
   const router = useRouter();
   const mapRef = useRef<MapRef>(null);
   const [userPin, setUserPin] = useState<UserPin | null>(null);
   const [locError, setLocError] = useState<string | null>(null);
   const [hoveredVenueId, setHoveredVenueId] = useState<string | null>(null);
+  const [hoveredSeriesId, setHoveredSeriesId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!city || !mapRef.current) return;
@@ -134,33 +87,36 @@ export function EventMap({ events, venues = [], selectedEvent, onEventSelect, ci
   }, [city]);
 
   const fitBounds = useCallback(() => {
-    const eventsWithCoords = events.filter((e) => e.lat && e.lng);
-    if (eventsWithCoords.length === 0 || !mapRef.current) return;
+    const points: { lng: number; lat: number }[] = [
+      ...venues.map((v) => ({ lng: v.lng, lat: v.lat })),
+      ...seriesPins.map((s) => ({ lng: s.lng, lat: s.lat })),
+    ];
+    if (points.length === 0 || !mapRef.current) return;
 
-    if (eventsWithCoords.length === 1) {
+    if (points.length === 1) {
       mapRef.current.flyTo({
-        center: [eventsWithCoords[0].lng!, eventsWithCoords[0].lat!],
+        center: [points[0].lng, points[0].lat],
         zoom: 14,
         duration: 1000,
       });
       return;
     }
 
-    const lngs = eventsWithCoords.map((e) => e.lng!);
-    const lats = eventsWithCoords.map((e) => e.lat!);
+    const lngs = points.map((p) => p.lng);
+    const lats = points.map((p) => p.lat);
     mapRef.current.fitBounds(
       [[Math.min(...lngs), Math.min(...lats)], [Math.max(...lngs), Math.max(...lats)]],
       { padding: 80, duration: 1000 }
     );
-  }, [events]);
+  }, [venues, seriesPins]);
 
   const hasFitRef = useRef(false);
   useEffect(() => {
-    if (!hasFitRef.current && events.length > 0) {
+    if (!hasFitRef.current && venues.length + seriesPins.length > 0) {
       hasFitRef.current = true;
       fitBounds();
     }
-  }, [events, fitBounds]);
+  }, [venues, seriesPins, fitBounds]);
 
   const handleUserLocation = () => {
     setLocError(null);
@@ -201,14 +157,8 @@ export function EventMap({ events, venues = [], selectedEvent, onEventSelect, ci
       >
         <NavigationControl position="bottom-right" showCompass={false} />
 
-        {/* Venue pins — square, white with dark border */}
         {venues.map((venue) => (
-          <Marker
-            key={`venue-${venue.id}`}
-            longitude={venue.lng}
-            latitude={venue.lat}
-            anchor="center"
-          >
+          <Marker key={`venue-${venue.id}`} longitude={venue.lng} latitude={venue.lat} anchor="center">
             <div
               style={{ position: "relative" }}
               onMouseEnter={() => setHoveredVenueId(venue.id)}
@@ -251,25 +201,52 @@ export function EventMap({ events, venues = [], selectedEvent, onEventSelect, ci
           </Marker>
         ))}
 
-        {/* Event pins */}
-        {events
-          .filter((e) => e.lat && e.lng)
-          .map((event) => (
-            <Marker
-              key={event.id}
-              longitude={event.lng!}
-              latitude={event.lat!}
-              anchor="center"
+        {seriesPins.map((s) => (
+          <Marker key={`series-${s.id}`} longitude={s.lng} latitude={s.lat} anchor="center">
+            <div
+              style={{ position: "relative" }}
+              onMouseEnter={() => setHoveredSeriesId(s.id)}
+              onMouseLeave={() => setHoveredSeriesId(null)}
+              onClick={() => router.push(`/series/${s.id}`)}
             >
-              <EventPin
-                event={event}
-                onClick={() => onEventSelect(event)}
-                isSelected={selectedEvent?.id === event.id}
+              <div
+                style={{
+                  width: 12,
+                  height: 12,
+                  backgroundColor: "#D97706",
+                  border: "2px solid #1E1D1A",
+                  borderRadius: 2,
+                  cursor: "pointer",
+                  transform:
+                    hoveredSeriesId === s.id ? "rotate(45deg) scale(1.15)" : "rotate(45deg)",
+                  transition: "transform 0.1s",
+                  boxSizing: "content-box",
+                }}
               />
-            </Marker>
-          ))}
+              {hoveredSeriesId === s.id && (
+                <div
+                  style={{
+                    position: "absolute",
+                    bottom: 22,
+                    left: "50%",
+                    transform: "translateX(-50%)",
+                    whiteSpace: "nowrap",
+                    backgroundColor: "#1E1D1A",
+                    border: "1px solid #2A2926",
+                    borderRadius: 2,
+                    padding: "3px 8px",
+                    pointerEvents: "none",
+                    zIndex: 10,
+                  }}
+                >
+                  <div style={{ color: "#fff", fontSize: 11, fontWeight: 600 }}>{s.name}</div>
+                  <div style={{ color: "#9B9690", fontSize: 10 }}>{s.city}</div>
+                </div>
+              )}
+            </div>
+          </Marker>
+        ))}
 
-        {/* User location pin */}
         {userPin && (
           <Marker longitude={userPin.lng} latitude={userPin.lat} anchor="center">
             <div
@@ -285,7 +262,6 @@ export function EventMap({ events, venues = [], selectedEvent, onEventSelect, ci
         )}
       </Map>
 
-      {/* User location button */}
       <button
         onClick={handleUserLocation}
         className="absolute bottom-14 right-3 bg-[#1E1D1A] border border-[#2A2926] px-2.5 py-1.5 rounded-sm flex items-center gap-1.5 transition-colors hover:border-[#6B6660]"
@@ -297,7 +273,6 @@ export function EventMap({ events, venues = [], selectedEvent, onEventSelect, ci
         </span>
       </button>
 
-      {/* Location error toast */}
       {locError && (
         <div className="absolute bottom-24 right-3 bg-[#1E1D1A] border border-[#2A2926] px-3 py-2 rounded-sm">
           <span className="text-[11px] text-[#9B9690]">{locError}</span>
