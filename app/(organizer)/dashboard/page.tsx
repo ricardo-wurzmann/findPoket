@@ -170,7 +170,7 @@ export default function DashboardPage() {
                   {(data.venues ?? []).map((v) => (
                     <Link
                       key={v.id}
-                      href={`/venues/${v.id}`}
+                      href={`/my-venues/${v.id}`}
                       className="block border border-border rounded-sm px-3 py-2.5 hover:bg-surface transition-colors text-[13px] font-medium"
                     >
                       {v.name} <span className="tag text-text-muted font-normal">· {v.city}</span>

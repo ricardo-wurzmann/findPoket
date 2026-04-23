@@ -25,6 +25,7 @@ export async function middleware(request: NextRequest) {
     pathname === "/series" ||
     pathname.startsWith("/series/create") ||
     pathname.startsWith("/my-series") ||
+    pathname.startsWith("/my-venues") ||
     pathname.startsWith("/venues/create");
   const pathParts = pathname.split("/").filter(Boolean);
   const isPlayerSeriesDetail =

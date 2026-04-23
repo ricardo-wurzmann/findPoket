@@ -18,6 +18,10 @@ export async function GET(
   const venue = await prisma.venue.findUnique({
     where: { id },
     include: {
+      cashTables: {
+        where: { isActive: true },
+        orderBy: { name: "asc" },
+      },
       events: {
         where: { status: { in: ["UPCOMING", "LIVE"] } },
         select: {

@@ -22,11 +22,12 @@ model User {
   phone           String?
   profession      String?
   hendonMob       String?
-  venues          Venue[]
-  series          Series[]
-  events          Event[]
-  registrations   Registration[]
-  venueInterests  VenueInterest[]
+  venues               Venue[]
+  series               Series[]
+  events               Event[]
+  registrations        Registration[]
+  venueInterests       VenueInterest[]
+  cashTableInterests   CashTableInterest[]
   stats           PlayerStats?
   waitlistEntries Waitlist[]
   createdAt       DateTime         @default(now())
@@ -66,8 +67,42 @@ model Venue {
   owner       User            @relation(fields: [ownerId], references: [id])
   events      Event[]
   interests   VenueInterest[]
+  cashTables  CashTable[]
   isActive    Boolean         @default(true)
   createdAt   DateTime        @default(now())
+}
+
+model CashTable {
+  id        String   @id @default(uuid())
+  venueId   String
+  venue     Venue    @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  name      String
+  variant   String   @default("NLH")
+  blindType String   @default("sb-bb")
+  sbValue   Float?
+  bbValue   Float?
+  btnValue  Float?
+  buyinMin  Float?
+  buyinMax  Float?
+  seats     Int      @default(9)
+  isActive  Boolean  @default(true)
+  notes     String?
+  interests CashTableInterest[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model CashTableInterest {
+  id          String    @id @default(uuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  cashTableId String
+  cashTable   CashTable @relation(fields: [cashTableId], references: [id], onDelete: Cascade)
+  status      RegStatus @default(PENDING)
+  note        String?
+  createdAt   DateTime  @default(now())
+
+  @@unique([userId, cashTableId])
 }
 
 model Series {

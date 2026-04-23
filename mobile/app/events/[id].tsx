@@ -15,11 +15,10 @@ import {
   Users,
   DollarSign,
   Trophy,
-  Clock,
 } from 'lucide-react-native';
 import { Colors } from '@/constants/colors';
 import { getEventById, declareInterest, getWaitlistPosition, joinWaitlist, leaveWaitlist } from '@/lib/api/events';
-import { Event } from '@/types';
+import { Event, BlindLevel } from '@/types';
 import { formatDateTime, formatCurrency } from '@/lib/utils';
 
 const STATUS_LABELS: Record<string, string> = {
@@ -41,6 +40,248 @@ const TYPE_LABELS: Record<string, string> = {
   CASH_GAME: 'Cash Game',
   HOME_GAME: 'Home Game',
 };
+
+function parseBlindLevels(raw: unknown): BlindLevel[] {
+  if (!raw || !Array.isArray(raw)) return [];
+  return raw.filter((row): row is BlindLevel => row !== null && typeof row === 'object');
+}
+
+function blindLevelsDurationMinutes(levels: BlindLevel[]): number {
+  return levels.reduce((sum, row) => sum + (typeof row.dur === 'number' ? row.dur : 0), 0);
+}
+
+function formatDuration(totalMin: number): string {
+  const h = Math.floor(totalMin / 60);
+  const m = totalMin % 60;
+  if (h <= 0) return `${m}min`;
+  return `${h}h ${m}min`;
+}
+
+function TournamentDetails({ event }: { event: Event }) {
+  const [showAllLevels, setShowAllLevels] = useState(false);
+  const levels = parseBlindLevels(event.blindStructure).filter((r) => r.type === 'level');
+  const allLevels = parseBlindLevels(event.blindStructure);
+  const blindDurationMin = blindLevelsDurationMinutes(allLevels);
+  const hasBlindTable = levels.length > 0;
+  const hasStack = event.startStack != null && event.startStack > 0;
+  const hasRebuy =
+    event.rebuyEnabled &&
+    (event.rebuyPrice != null || event.rebuyStack != null);
+  const hasAddon =
+    event.addonEnabled &&
+    (event.addonPrice != null || event.addonStack != null);
+  const hasGtd = event.gtd != null && event.gtd > 0;
+  const hasLegacyText =
+    !!(event.startingStack || event.levelDuration || event.rebuyPolicy);
+  const hasLegacyStack = !!(event.startingStack && !hasStack);
+
+  const innerCard =
+    hasBlindTable ||
+    hasStack ||
+    hasRebuy ||
+    hasAddon ||
+    hasLegacyStack ||
+    !!(event.levelDuration || event.rebuyPolicy);
+
+  if (!hasGtd && !innerCard) {
+    return null;
+  }
+
+  const preview = showAllLevels ? levels : levels.slice(0, 5);
+
+  return (
+    <View style={{ marginHorizontal: 16, marginBottom: 16, gap: 12 }}>
+      {hasGtd && (
+        <View style={detailStyles.gtdBanner}>
+          <Text style={detailStyles.gtdLabel}>Garantido</Text>
+          <Text style={detailStyles.gtdValue}>{formatCurrency(event.gtd!)}</Text>
+        </View>
+      )}
+
+      {innerCard ? (
+      <View style={detailStyles.card}>
+        {hasBlindTable && (
+          <>
+            <Text style={detailStyles.cardTitle}>
+              {levels.length} níveis · {formatDuration(blindDurationMin)} estimados
+            </Text>
+            <View style={detailStyles.tableHeader}>
+              <Text style={[detailStyles.th, { flex: 0.7 }]}>Nível</Text>
+              <Text style={detailStyles.th}>SB</Text>
+              <Text style={detailStyles.th}>BB</Text>
+              <Text style={detailStyles.th}>Ante</Text>
+              <Text style={detailStyles.th}>Min</Text>
+            </View>
+            {preview.map((row, idx) => (
+              <View
+                key={`${idx}-${row.sb}-${row.bb}`}
+                style={[detailStyles.tr, idx % 2 === 1 && detailStyles.trAlt]}
+              >
+                <Text style={[detailStyles.td, { flex: 0.7 }]}>{idx + 1}</Text>
+                <Text style={detailStyles.td}>{row.sb ?? '—'}</Text>
+                <Text style={detailStyles.td}>{row.bb ?? '—'}</Text>
+                <Text style={detailStyles.td}>{row.ante ?? '—'}</Text>
+                <Text style={detailStyles.td}>{row.dur ?? '—'}</Text>
+              </View>
+            ))}
+            {levels.length > 5 && !showAllLevels && (
+              <Text style={detailStyles.moreHint}>... e mais {levels.length - 5} níveis</Text>
+            )}
+            {levels.length > 5 && (
+              <TouchableOpacity onPress={() => setShowAllLevels((s) => !s)} style={detailStyles.toggleBtn}>
+                <Text style={detailStyles.toggleText}>
+                  {showAllLevels ? 'Ocultar' : 'Ver estrutura completa'}
+                </Text>
+              </TouchableOpacity>
+            )}
+          </>
+        )}
+
+        {hasStack && (
+          <View style={[detailStyles.rowLine, hasBlindTable && detailStyles.rowDivider]}>
+            <Text style={detailStyles.detailLabel}>Stack inicial</Text>
+            <Text style={detailStyles.detailValue}>{event.startStack!.toLocaleString('pt-BR')}</Text>
+          </View>
+        )}
+
+        {hasLegacyText && (
+          <View style={detailStyles.legacyBlock}>
+            {hasLegacyStack && (
+              <View style={detailStyles.rowLine}>
+                <Text style={detailStyles.detailLabel}>Stack (info)</Text>
+                <Text style={detailStyles.detailValue}>{event.startingStack}</Text>
+              </View>
+            )}
+            {event.levelDuration && (
+              <View style={detailStyles.rowLine}>
+                <Text style={detailStyles.detailLabel}>Duração do nível</Text>
+                <Text style={detailStyles.detailValue}>{event.levelDuration}</Text>
+              </View>
+            )}
+            {event.rebuyPolicy && (
+              <View style={detailStyles.rowLine}>
+                <Text style={detailStyles.detailLabel}>Rebuy (texto)</Text>
+                <Text style={[detailStyles.detailValue, { flex: 1, textAlign: 'right' }]}>
+                  {event.rebuyPolicy}
+                </Text>
+              </View>
+            )}
+          </View>
+        )}
+
+        {hasRebuy && (
+          <View style={detailStyles.rowLine}>
+            <Text style={detailStyles.detailLabel}>Rebuy</Text>
+            <Text style={detailStyles.detailValue}>
+              {event.rebuyPrice != null ? formatCurrency(event.rebuyPrice) : ''}
+              {event.rebuyPrice != null && event.rebuyStack != null ? ' · ' : ''}
+              {event.rebuyStack != null ? `Stack ${event.rebuyStack.toLocaleString('pt-BR')}` : ''}
+              {event.rebuyLimit ? ` · ${event.rebuyLimit}` : ''}
+            </Text>
+          </View>
+        )}
+
+        {hasAddon && (
+          <View style={detailStyles.rowLine}>
+            <Text style={detailStyles.detailLabel}>Add-on</Text>
+            <Text style={detailStyles.detailValue}>
+              {event.addonPrice != null ? formatCurrency(event.addonPrice) : ''}
+              {event.addonPrice != null && event.addonStack != null ? ' · ' : ''}
+              {event.addonStack != null ? `Stack ${event.addonStack.toLocaleString('pt-BR')}` : ''}
+            </Text>
+          </View>
+        )}
+      </View>
+      ) : null}
+    </View>
+  );
+}
+
+function CashGameDetails({ event }: { event: Event }) {
+  const parts: { label: string; value: string }[] = [];
+  if (event.blindType === 'button' && event.btnValue != null && event.btnValue > 0) {
+    parts.push({ label: 'Blinds', value: `Button ${event.btnValue}` });
+  } else if (event.blindType === 'sb-bb' || !event.blindType) {
+    const sb = event.sbValue ?? 0;
+    const bb = event.bbValue ?? 0;
+    if (sb > 0 || bb > 0) {
+      let v = `${sb} / ${bb}`;
+      if (event.straddleValue != null && event.straddleValue > 0) {
+        v += ` · Straddle ${event.straddleValue}`;
+      }
+      parts.push({ label: 'Blinds', value: v });
+    }
+  }
+  if (event.blindType === 'button' && (!event.btnValue || event.btnValue <= 0) && event.blinds) {
+    parts.push({ label: 'Blinds', value: event.blinds });
+  }
+  if (event.buyinMin != null || event.buyinMax != null) {
+    const a =
+      event.buyinMin != null && event.buyinMin > 0 ? formatCurrency(event.buyinMin) : '—';
+    const b =
+      event.buyinMax != null && event.buyinMax > 0 ? formatCurrency(event.buyinMax) : '—';
+    parts.push({ label: 'Buy-in', value: `${a} – ${b}` });
+  }
+  if (event.tableCount != null || event.seatsPerTable != null) {
+    const tc = event.tableCount != null ? `${event.tableCount} mesas` : '';
+    const sp = event.seatsPerTable != null ? `${event.seatsPerTable} lugares/mesa` : '';
+    parts.push({ label: 'Mesas', value: [tc, sp].filter(Boolean).join(' · ') });
+  }
+  if (event.rake != null && event.rake > 0 && !event.hideRake) {
+    const cap =
+      event.rakeCap != null && event.rakeCap > 0
+        ? ` · cap ${formatCurrency(event.rakeCap)}`
+        : '';
+    parts.push({ label: 'Rake', value: `${event.rake}%${cap}` });
+  }
+  if (parts.length === 0) return null;
+  return (
+    <View style={[detailStyles.card, { marginHorizontal: 16, marginBottom: 16 }]}>
+      {parts.map((p) => (
+        <View key={p.label} style={detailStyles.rowLine}>
+          <Text style={detailStyles.detailLabel}>{p.label}</Text>
+          <Text style={[detailStyles.detailValue, { flex: 1, textAlign: 'right' }]}>{p.value}</Text>
+        </View>
+      ))}
+    </View>
+  );
+}
+
+const detailStyles = StyleSheet.create({
+  card: {
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderRadius: 12,
+    padding: 14,
+    gap: 10,
+  },
+  cardTitle: { fontSize: 12, color: Colors.textMuted, marginBottom: 4 },
+  gtdBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: 'rgba(245, 158, 11, 0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(245, 158, 11, 0.35)',
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+  },
+  gtdLabel: { fontSize: 12, fontWeight: '600', color: Colors.amber },
+  gtdValue: { fontSize: 20, fontStyle: 'italic', fontWeight: '300', color: Colors.amber },
+  tableHeader: { flexDirection: 'row', marginTop: 4, paddingBottom: 6, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.1)' },
+  th: { flex: 1, fontSize: 10, fontWeight: '700', color: Colors.textMuted, textTransform: 'uppercase' },
+  tr: { flexDirection: 'row', paddingVertical: 8 },
+  trAlt: { backgroundColor: 'rgba(255,255,255,0.04)' },
+  td: { flex: 1, fontSize: 12, color: Colors.white },
+  moreHint: { fontSize: 11, color: Colors.textMuted, marginTop: 4 },
+  toggleBtn: { marginTop: 8, paddingVertical: 6 },
+  toggleText: { fontSize: 12, color: '#9b9690', fontWeight: '600' },
+  rowLine: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 },
+  rowDivider: { marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.08)' },
+  legacyBlock: { gap: 8 },
+  detailLabel: { fontSize: 13, color: Colors.textMuted },
+  detailValue: { fontSize: 13, fontWeight: '600', color: Colors.white },
+});
 
 export default function EventDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -151,6 +392,12 @@ export default function EventDetailScreen() {
   const statusColor = STATUS_COLORS[event.status] ?? Colors.textMuted;
   const interested = event._count?.registrations ?? 0;
   const progressRatio = event.maxPlayers > 0 ? Math.min(interested / event.maxPlayers, 1) : 0;
+  const isCash = event.type === 'CASH_GAME';
+  const isTournamentLike = event.type === 'TOURNAMENT' || event.type === 'HOME_GAME';
+  const cashBuyinLabel =
+    event.buyinMin != null || event.buyinMax != null
+      ? `${event.buyinMin != null && event.buyinMin > 0 ? formatCurrency(event.buyinMin) : '—'} – ${event.buyinMax != null && event.buyinMax > 0 ? formatCurrency(event.buyinMax) : '—'}`
+      : formatCurrency(event.buyIn);
 
   return (
     <ScrollView
@@ -191,12 +438,22 @@ export default function EventDetailScreen() {
 
       {/* Info grid */}
       <View style={styles.infoGrid}>
-        <InfoCard
-          icon={<DollarSign size={16} color={Colors.green} />}
-          label="Buy-in"
-          value={formatCurrency(event.buyIn)}
-          valueColor={Colors.green}
-        />
+        {!isCash && (
+          <InfoCard
+            icon={<DollarSign size={16} color={Colors.green} />}
+            label="Buy-in"
+            value={formatCurrency(event.buyIn)}
+            valueColor={Colors.green}
+          />
+        )}
+        {isCash && (
+          <InfoCard
+            icon={<DollarSign size={16} color={Colors.green} />}
+            label="Buy-in"
+            value={cashBuyinLabel}
+            valueColor={Colors.green}
+          />
+        )}
         <InfoCard
           icon={<Calendar size={16} color={Colors.textMuted} />}
           label="Data/Hora"
@@ -208,13 +465,13 @@ export default function EventDetailScreen() {
           value={`${interested} / ${event.maxPlayers}`}
           valueColor={Colors.amber}
         />
-        {event.gtd && (
+        {!isCash && event.gtd ? (
           <InfoCard
             icon={<Trophy size={16} color={Colors.textMuted} />}
             label="GTD"
             value={formatCurrency(event.gtd)}
           />
-        )}
+        ) : null}
       </View>
 
       {/* Progress bar */}
@@ -229,28 +486,8 @@ export default function EventDetailScreen() {
         </View>
       )}
 
-      {/* Tournament details */}
-      {event.type === 'TOURNAMENT' && (
-        <View style={styles.detailsSection}>
-          {event.startingStack && (
-            <DetailRow label="Stack inicial" value={event.startingStack} />
-          )}
-          {event.levelDuration && (
-            <DetailRow label="Duração do nível" value={event.levelDuration} />
-          )}
-          {event.rebuyPolicy && (
-            <DetailRow label="Rebuy" value={event.rebuyPolicy} />
-          )}
-        </View>
-      )}
-
-      {/* Cash Game details */}
-      {event.type === 'CASH_GAME' && event.blinds && (
-        <View style={styles.detailsSection}>
-          <DetailRow label="Blinds" value={event.blinds} />
-          <DetailRow label="Max jogadores" value={String(event.maxPlayers)} />
-        </View>
-      )}
+      {isTournamentLike && <TournamentDetails event={event} />}
+      {isCash && <CashGameDetails event={event} />}
 
       {/* Description */}
       {event.description && (
@@ -352,15 +589,6 @@ function InfoCard({ icon, label, value, valueColor }: InfoCardProps) {
   );
 }
 
-function DetailRow({ label, value }: { label: string; value: string }) {
-  return (
-    <View style={styles.detailRow}>
-      <Text style={styles.detailLabel}>{label}</Text>
-      <Text style={styles.detailValue}>{value}</Text>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.dark },
   center: { alignItems: 'center', justifyContent: 'center' },
@@ -422,18 +650,6 @@ const styles = StyleSheet.create({
     borderRadius: 999,
   },
   progressText: { fontSize: 12, color: Colors.textMuted },
-
-  detailsSection: {
-    marginHorizontal: 16,
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    borderRadius: 12,
-    padding: 14,
-    gap: 10,
-    marginBottom: 16,
-  },
-  detailRow: { flexDirection: 'row', justifyContent: 'space-between' },
-  detailLabel: { fontSize: 13, color: Colors.textMuted },
-  detailValue: { fontSize: 13, fontWeight: '600', color: Colors.white },
 
   descSection: { paddingHorizontal: 16, marginBottom: 24 },
   sectionTitle: { fontSize: 16, fontWeight: '700', color: Colors.white, marginBottom: 10 },

@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
 import { CalendarAgendaClient } from "@/components/calendar/CalendarAgendaClient";
+import { fetchGroupedActiveCashTables } from "@/lib/cash-tables-grouped";
 
 export default async function CalendarPage() {
   const supabase = await createClient();
@@ -13,7 +14,7 @@ export default async function CalendarPage() {
   const now = new Date();
   const y = now.getFullYear();
 
-  const [events, venues, seriesList] = await Promise.all([
+  const [events, venues, seriesList, cashGameGrouped] = await Promise.all([
     prisma.event.findMany({
       where: {
         status: { notIn: ["FINISHED", "CANCELLED"] },
@@ -45,6 +46,7 @@ export default async function CalendarPage() {
       },
       orderBy: { startsAt: "asc" },
     }),
+    fetchGroupedActiveCashTables(),
   ]);
 
   const yearEventCount = events.filter((e) => new Date(e.startsAt).getFullYear() === y).length;
@@ -55,6 +57,7 @@ export default async function CalendarPage() {
       venues={venues}
       seriesList={JSON.parse(JSON.stringify(seriesList)) as never}
       yearEventCount={yearEventCount}
+      cashGameGrouped={JSON.parse(JSON.stringify(cashGameGrouped)) as never}
     />
   );
 }

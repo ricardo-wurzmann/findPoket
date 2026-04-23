@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -16,9 +16,11 @@ import { Colors } from '@/constants/colors';
 import { useEvents } from '@/hooks/useEvents';
 import { useSeries } from '@/hooks/useSeries';
 import { EventCard } from '@/components/events/EventCard';
-import { filterEventsByTime } from '@/lib/utils';
+import { filterEventsByTime, filterByStartsAtTime } from '@/lib/utils';
 import { TimeFilter, Event } from '@/types';
 import type { SeriesListItem } from '@/lib/api/series';
+import { getCashTables, type CashTableGroup, type CashTableApiRow } from '@/lib/api/cashTables';
+import { formatCashTableBlinds, formatCashTableBuyinRange } from '@/lib/cashTableDisplay';
 
 const TIME_CHIPS: { key: TimeFilter; label: string }[] = [
   { key: 'today', label: 'Hoje' },
@@ -26,7 +28,7 @@ const TIME_CHIPS: { key: TimeFilter; label: string }[] = [
   { key: 'month', label: 'Este mês' },
 ];
 
-type TabKey = 'tournaments' | 'series';
+type TabKey = 'tournaments' | 'series' | 'cash';
 
 export default function AgendaScreen() {
   const insets = useSafeAreaInsets();
@@ -36,13 +38,35 @@ export default function AgendaScreen() {
   const { events, loading, error, refetch } = useEvents();
   const { series, loading: seriesLoading, error: seriesError, refetch: refetchSeries } = useSeries();
   const [refreshing, setRefreshing] = useState(false);
+  const [cashGroups, setCashGroups] = useState<CashTableGroup[]>([]);
+  const [cashLoading, setCashLoading] = useState(false);
+  const [cashError, setCashError] = useState<string | null>(null);
 
   const filtered = filterEventsByTime(events, timeFilter);
+  const filteredSeries = filterByStartsAtTime(series, timeFilter);
+
+  const loadCash = useCallback(async () => {
+    setCashLoading(true);
+    setCashError(null);
+    try {
+      const g = await getCashTables();
+      setCashGroups(g);
+    } catch (e) {
+      setCashError(e instanceof Error ? e.message : 'Erro ao carregar');
+    } finally {
+      setCashLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (tab === 'cash') void loadCash();
+  }, [tab, loadCash]);
 
   const onRefresh = async () => {
     setRefreshing(true);
     if (tab === 'tournaments') await refetch();
-    else await refetchSeries();
+    else if (tab === 'series') await refetchSeries();
+    else await loadCash();
     setRefreshing(false);
   };
 
@@ -56,7 +80,7 @@ export default function AgendaScreen() {
     >
       <Text style={styles.seriesName}>{item.name}</Text>
       <Text style={styles.seriesMeta}>
-        {format(new Date(item.startsAt), "d MMM yyyy", { locale: ptBR })}
+        {format(new Date(item.startsAt), 'd MMM yyyy', { locale: ptBR })}
         {item.endsAt ? ` — ${format(new Date(item.endsAt), 'd MMM yyyy', { locale: ptBR })}` : ''}
       </Text>
       <Text style={styles.seriesLoc}>
@@ -69,13 +93,56 @@ export default function AgendaScreen() {
     </TouchableOpacity>
   );
 
+  const totalCashTables = cashGroups.reduce((a, g) => a + g.tables.length, 0);
+
+  const renderCashVenue = ({ item }: { item: CashTableGroup }) => (
+    <TouchableOpacity
+      style={styles.cashVenueCard}
+      activeOpacity={0.8}
+      onPress={() => router.push(`/venues/${item.venue.id}`)}
+    >
+      <View style={styles.cashVenueHeader}>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.cashVenueTitle}>{item.venue.name}</Text>
+          <Text style={styles.cashVenueSub}>
+            {item.venue.district} · {item.venue.city}
+          </Text>
+        </View>
+        <View style={styles.cashVenueBadge}>
+          <Text style={styles.cashVenueBadgeText}>
+            {item.tables.length} {item.tables.length === 1 ? 'mesa ativa' : 'mesas ativas'}
+          </Text>
+        </View>
+      </View>
+      {item.tables.map((t: CashTableApiRow) => (
+        <View key={t.id} style={styles.cashTableRow}>
+          <View style={styles.cashTableTop}>
+            <View style={styles.variantPill}>
+              <Text style={styles.variantPillText}>{t.variant}</Text>
+            </View>
+            <Text style={styles.cashTableName}>{t.name}</Text>
+          </View>
+          <Text style={styles.cashTableMeta}>
+            {formatCashTableBlinds(t)} · {formatCashTableBuyinRange(t.buyinMin, t.buyinMax)} · {t.seats}{' '}
+            lugares
+          </Text>
+        </View>
+      ))}
+    </TouchableOpacity>
+  );
+
+  const headerCount =
+    tab === 'tournaments'
+      ? `${filtered.length} eventos`
+      : tab === 'series'
+        ? `${filteredSeries.length} séries`
+        : `${totalCashTables} mesas`;
+
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       <View style={styles.header}>
         <Text style={styles.title}>Agenda</Text>
-        <Text style={styles.count}>
-          {tab === 'tournaments' ? `${filtered.length} eventos` : `${series.length} séries`}
-        </Text>
+        <Text style={styles.count}>{headerCount}</Text>
       </View>
 
       <View style={styles.tabRow}>
@@ -91,9 +158,15 @@ export default function AgendaScreen() {
         >
           <Text style={[styles.tabText, tab === 'series' && styles.tabTextActive]}>Séries</Text>
         </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tab, tab === 'cash' && styles.tabActive]}
+          onPress={() => setTab('cash')}
+        >
+          <Text style={[styles.tabText, tab === 'cash' && styles.tabTextActive]}>Cash</Text>
+        </TouchableOpacity>
       </View>
 
-      {tab === 'tournaments' && (
+      {(tab === 'tournaments' || tab === 'series') && (
         <View style={styles.chipRow}>
           {TIME_CHIPS.map((chip) => (
             <TouchableOpacity
@@ -136,19 +209,45 @@ export default function AgendaScreen() {
             }
           />
         )
-      ) : seriesLoading ? (
+      ) : tab === 'series' ? (
+        seriesLoading ? (
+          <View style={styles.center}>
+            <ActivityIndicator color={Colors.green} size="large" />
+          </View>
+        ) : seriesError ? (
+          <View style={styles.center}>
+            <Text style={styles.errorText}>{seriesError}</Text>
+          </View>
+        ) : (
+          <FlatList
+            data={filteredSeries}
+            keyExtractor={(item) => item.id}
+            renderItem={renderSeries}
+            contentContainerStyle={styles.list}
+            showsVerticalScrollIndicator={false}
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.green} />
+            }
+            ListEmptyComponent={
+              <View style={styles.center}>
+                <Text style={styles.emptyText}>Nenhuma série neste período.</Text>
+              </View>
+            }
+          />
+        )
+      ) : cashLoading ? (
         <View style={styles.center}>
           <ActivityIndicator color={Colors.green} size="large" />
         </View>
-      ) : seriesError ? (
+      ) : cashError ? (
         <View style={styles.center}>
-          <Text style={styles.errorText}>{seriesError}</Text>
+          <Text style={styles.errorText}>{cashError}</Text>
         </View>
       ) : (
         <FlatList
-          data={series}
-          keyExtractor={(item) => item.id}
-          renderItem={renderSeries}
+          data={cashGroups}
+          keyExtractor={(item) => item.venue.id}
+          renderItem={renderCashVenue}
           contentContainerStyle={styles.list}
           showsVerticalScrollIndicator={false}
           refreshControl={
@@ -156,7 +255,7 @@ export default function AgendaScreen() {
           }
           ListEmptyComponent={
             <View style={styles.center}>
-              <Text style={styles.emptyText}>Nenhuma série encontrada.</Text>
+              <Text style={styles.emptyText}>Nenhuma mesa de cash ativa no momento.</Text>
             </View>
           }
         />
@@ -184,7 +283,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   tab: {
-    paddingHorizontal: 16,
+    paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 999,
     backgroundColor: 'rgba(255,255,255,0.08)',
@@ -231,4 +330,47 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(217,119,6,0.25)',
   },
   badgeText: { fontSize: 11, fontWeight: '700', color: '#FBBF24' },
+  cashVenueCard: {
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderRadius: 12,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+    overflow: 'hidden',
+  },
+  cashVenueHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255,255,255,0.08)',
+    gap: 8,
+  },
+  cashVenueTitle: { fontSize: 16, fontWeight: '700', color: Colors.white },
+  cashVenueSub: { fontSize: 12, color: Colors.textMuted, marginTop: 4 },
+  cashVenueBadge: {
+    backgroundColor: 'rgba(34,197,94,0.2)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+  },
+  cashVenueBadgeText: { fontSize: 11, fontWeight: '700', color: Colors.green },
+  cashTableRow: {
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.06)',
+  },
+  cashTableTop: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
+  variantPill: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.15)',
+  },
+  variantPillText: { fontSize: 10, fontWeight: '700', color: Colors.amber },
+  cashTableName: { fontSize: 14, fontWeight: '600', color: Colors.white, flex: 1 },
+  cashTableMeta: { fontSize: 12, color: Colors.textMuted, marginTop: 6 },
 });

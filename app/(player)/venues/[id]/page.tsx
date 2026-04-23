@@ -6,7 +6,9 @@ import { formatCurrency, formatTime } from "@/lib/utils";
 import { format, getDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { DeclareVenueInterestButton } from "@/components/venues/DeclareVenueInterestButton";
+import { DeclareCashTableInterestButton } from "@/components/venues/DeclareCashTableInterestButton";
 import { ShareButton } from "@/components/venues/ShareButton";
+import { formatCashTableBlinds, formatCashTableBuyinRange } from "@/lib/cash-table-display";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -58,9 +60,24 @@ export default async function VenueProfilePage({ params }: Props) {
 
   if (!venue) notFound();
 
-  const userInterest = await prisma.venueInterest.findUnique({
-    where: { userId_venueId: { userId: dbUser.id, venueId: id } },
-  });
+  const [userInterest, cashTables, cashTableInterests] = await Promise.all([
+    prisma.venueInterest.findUnique({
+      where: { userId_venueId: { userId: dbUser.id, venueId: id } },
+    }),
+    prisma.cashTable.findMany({
+      where: { venueId: id, isActive: true },
+      orderBy: { name: "asc" },
+    }),
+    prisma.cashTableInterest.findMany({
+      where: {
+        userId: dbUser.id,
+        cashTable: { venueId: id, isActive: true },
+        status: { in: ["PENDING", "APPROVED"] },
+      },
+      select: { cashTableId: true },
+    }),
+  ]);
+  const cashInterestIds = new Set(cashTableInterests.map((i) => i.cashTableId));
 
   const open = isOpenNow(venue.openTime, venue.closeTime);
   const tournaments = venue.events.filter((e) => e.type === "TOURNAMENT");
@@ -141,6 +158,36 @@ export default async function VenueProfilePage({ params }: Props) {
       {/* Page body */}
       <div className="flex-1 bg-background">
         <div className="max-w-2xl mx-auto px-6 py-6 space-y-6">
+
+          {cashTables.length > 0 && (
+            <section>
+              <h2 className="tag text-text-muted mb-3 flex items-center gap-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-green inline-block animate-pulse" />
+                Cash Game · {cashTables.length} {cashTables.length === 1 ? "mesa ativa" : "mesas ativas"}
+              </h2>
+              <div className="space-y-3">
+                {cashTables.map((t) => (
+                  <div key={t.id} className="border border-border rounded-sm bg-background px-4 py-3 space-y-2">
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                      <div className="flex-1 min-w-0 flex flex-wrap items-center gap-2">
+                        <span className="tag border border-border px-1.5 py-0.5 rounded-sm text-[10px]">{t.variant}</span>
+                        <span className="text-[13px] font-semibold">{t.name}</span>
+                      </div>
+                      <div className="flex flex-wrap gap-x-4 gap-y-1 text-[12px] text-text-muted tag sm:flex-1">
+                        <span>{formatCashTableBlinds(t)}</span>
+                        <span>{formatCashTableBuyinRange(t.buyinMin, t.buyinMax)}</span>
+                        <span>{t.seats} lugares</span>
+                      </div>
+                      <div className="shrink-0">
+                        <DeclareCashTableInterestButton cashTableId={t.id} initialDeclared={cashInterestIds.has(t.id)} />
+                      </div>
+                    </div>
+                    {t.notes && <p className="tag text-text-muted text-[11px]">{t.notes}</p>}
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
 
           {/* Cash Game section */}
           <section className="border border-border rounded-sm overflow-hidden">

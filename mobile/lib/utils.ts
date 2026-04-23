@@ -50,6 +50,16 @@ export function filterEventsByTime(events: Event[], filter: TimeFilter): Event[]
   });
 }
 
+export function filterByStartsAtTime<T extends { startsAt: string }>(items: T[], filter: TimeFilter): T[] {
+  return items.filter((item) => {
+    const date = new Date(item.startsAt);
+    if (filter === 'today') return isToday(date);
+    if (filter === 'week') return isThisWeek(date, { locale: ptBR });
+    if (filter === 'month') return isThisMonth(date);
+    return true;
+  });
+}
+
 export function filterEventsByType(events: Event[], filter: EventFilter): Event[] {
   if (filter === 'all') return events;
   if (filter === 'venues') return events.filter((e) => e.venueId !== null);

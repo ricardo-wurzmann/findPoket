@@ -60,3 +60,18 @@ export const supabase = createClient(
     },
   }
 );
+
+/** True when stored session cannot be refreshed — clear local auth to stop error loops. */
+export function isRefreshTokenAuthError(err: { message?: string } | null | undefined): boolean {
+  const m = (err?.message ?? '').toLowerCase();
+  return (
+    m.includes('invalid refresh token') ||
+    m.includes('refresh token not found') ||
+    m.includes('refresh token revoked')
+  );
+}
+
+/** Removes broken session from SecureStore without calling the server. */
+export async function clearInvalidLocalSession(): Promise<void> {
+  await supabase.auth.signOut({ scope: 'local' });
+}
